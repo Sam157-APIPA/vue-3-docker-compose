@@ -1,30 +1,30 @@
 <template>
-  <div class="page-root">
-    <div class="page-header">
-      <div class="title-block">
-        <h1 class="page-title">{{ level.title }}</h1>
-        <p class="page-text">
+  <div class="tower-defense-page">
+    <div class="tower-defense-page__header">
+      <div class="tower-defense-page__title-block">
+        <h1 class="tower-defense-page__title">{{ level.title }}</h1>
+        <p class="tower-defense-page__text">
           Manual level, fixed slots, build, upgrade, remove, manual enemy movement and economy
         </p>
       </div>
 
-      <div class="header-actions">
+      <div class="tower-defense-page__header-actions">
         <button
-            class="back-button"
+            class="tower-defense-page__back-button"
             type="button"
             @click="() => goToLevels()"
         >
           Back to levels
         </button>
 
-        <div class="gold-box">
+        <div class="tower-defense-page__gold-box">
           Gold: {{ gold }}
         </div>
       </div>
     </div>
 
-    <div class="page-layout">
-      <div class="left-column">
+    <div class="tower-defense-page__layout">
+      <div class="tower-defense-page__left-column">
         <GameCanvas
             :level="level"
             :slots="slots"
@@ -41,7 +41,7 @@
         />
       </div>
 
-      <div class="right-column">
+      <div class="tower-defense-page__right-column">
         <ControlPanel
             :build-mode="buildMode"
             :tower-types="towerTypes"
@@ -180,83 +180,83 @@ export default {
 }
 </script>
 
-<style scoped>
-.page-root {
+<style scoped lang="scss">
+.tower-defense-page {
   padding: 24px;
-}
 
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.title-block {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.page-title {
-  margin: 0;
-  font-size: 32px;
-  line-height: 1.1;
-}
-
-.page-text {
-  margin: 0;
-  color: var(--muted);
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.back-button {
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--panel);
-  color: var(--text);
-  cursor: pointer;
-}
-
-.gold-box {
-  padding: 12px 16px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--panel);
-  font-weight: bold;
-}
-
-.page-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 20px;
-  align-items: start;
-}
-
-.left-column {
-  min-width: 0;
-}
-
-.right-column {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-@media (max-width: 1100px) {
-  .page-layout {
-    grid-template-columns: 1fr;
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
   }
 
-  .page-header {
+  &__title-block {
+    display: flex;
     flex-direction: column;
+    gap: 8px;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 32px;
+    line-height: 1.1;
+  }
+
+  &__text {
+    margin: 0;
+    color: var(--muted);
+  }
+
+  &__header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  &__back-button {
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel);
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  &__gold-box {
+    padding: 12px 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel);
+    font-weight: bold;
+  }
+
+  &__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 20px;
+    align-items: start;
+  }
+
+  &__left-column {
+    min-width: 0;
+  }
+
+  &__right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  @media (max-width: 1100px) {
+    &__header {
+      flex-direction: column;
+    }
+
+    &__layout {
+      grid-template-columns: 1fr;
+    }
   }
 }
 </style>

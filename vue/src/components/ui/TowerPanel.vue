@@ -1,25 +1,25 @@
 <template>
-  <div class="panel-root">
-    <div class="panel-header">
-      <h2 class="panel-title">Selection</h2>
-      <p class="panel-text">Tower info, enemy info and economy</p>
+  <div class="tower-panel">
+    <div class="tower-panel__header">
+      <h2 class="tower-panel__title">Selection</h2>
+      <p class="tower-panel__text">Tower info, enemy info and economy</p>
     </div>
 
-    <div class="info-card">
-      <p class="info-title">Economy</p>
-      <p class="info-line">Gold: {{ gold }}</p>
+    <div class="tower-panel__card">
+      <p class="tower-panel__card-title">Economy</p>
+      <p class="tower-panel__line">Gold: {{ gold }}</p>
     </div>
 
-    <div v-if="selectedTower" class="info-card">
-      <p class="info-title">Selected tower</p>
-      <p class="info-line">Type: {{ selectedTower.type }}</p>
-      <p class="info-line">Level: {{ selectedTower.level }}</p>
-      <p class="info-line">Range: {{ towerStats ? towerStats.range : '-' }}</p>
-      <p class="info-line">Damage: {{ towerStats ? towerStats.damage : '-' }}</p>
+    <div v-if="selectedTower" class="tower-panel__card">
+      <p class="tower-panel__card-title">Selected tower</p>
+      <p class="tower-panel__line">Type: {{ selectedTower.type }}</p>
+      <p class="tower-panel__line">Level: {{ selectedTower.level }}</p>
+      <p class="tower-panel__line">Range: {{ towerStats ? towerStats.range : '-' }}</p>
+      <p class="tower-panel__line">Damage: {{ towerStats ? towerStats.damage : '-' }}</p>
 
-      <div class="button-row">
+      <div class="tower-panel__button-row">
         <button
-            class="action-button"
+            class="tower-panel__button"
             type="button"
             @click="() => emitUpgradeTower(selectedTower.id)"
         >
@@ -27,7 +27,7 @@
         </button>
 
         <button
-            class="action-button action-button-danger"
+            class="tower-panel__button tower-panel__button--danger"
             type="button"
             @click="() => emitRemoveTower(selectedTower.id)"
         >
@@ -36,16 +36,16 @@
       </div>
     </div>
 
-    <div v-else class="empty-state">
-      <p class="empty-text">No tower selected</p>
+    <div v-else class="tower-panel__empty-state">
+      <p class="tower-panel__empty-text">No tower selected</p>
     </div>
 
-    <div v-if="selectedEnemy" class="info-card">
-      <p class="info-title">Selected enemy</p>
-      <p class="info-line">Id: {{ selectedEnemy.id }}</p>
-      <p class="info-line">HP: {{ Math.round(selectedEnemy.hp) }}</p>
-      <p class="info-line">X: {{ selectedEnemy.pos.x }}</p>
-      <p class="info-line">Y: {{ selectedEnemy.pos.y }}</p>
+    <div v-if="selectedEnemy" class="tower-panel__card">
+      <p class="tower-panel__card-title">Selected enemy</p>
+      <p class="tower-panel__line">Id: {{ selectedEnemy.id }}</p>
+      <p class="tower-panel__line">HP: {{ Math.round(selectedEnemy.hp) }}</p>
+      <p class="tower-panel__line">X: {{ selectedEnemy.pos.x }}</p>
+      <p class="tower-panel__line">Y: {{ selectedEnemy.pos.y }}</p>
     </div>
   </div>
 </template>
@@ -100,8 +100,8 @@ export default {
 }
 </script>
 
-<style scoped>
-.panel-root {
+<style scoped lang="scss">
+.tower-panel {
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -109,73 +109,73 @@ export default {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-}
 
-.panel-header {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
+  &__header {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
 
-.panel-title {
-  margin: 0;
-  font-size: 22px;
-}
+  &__title {
+    margin: 0;
+    font-size: 22px;
+  }
 
-.panel-text {
-  margin: 0;
-  color: var(--muted);
-  font-size: 14px;
-}
+  &__text {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
 
-.info-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 14px;
-  border-radius: 12px;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-}
+  &__card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px;
+    border-radius: 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+  }
 
-.info-title {
-  margin: 0;
-  font-weight: bold;
-}
+  &__card-title {
+    margin: 0;
+    font-weight: bold;
+  }
 
-.info-line {
-  margin: 0;
-  color: var(--text);
-}
+  &__line {
+    margin: 0;
+    color: var(--text);
+  }
 
-.empty-state {
-  padding: 14px;
-  border-radius: 12px;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-}
+  &__empty-state {
+    padding: 14px;
+    border-radius: 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+  }
 
-.empty-text {
-  margin: 0;
-  color: var(--muted);
-}
+  &__empty-text {
+    margin: 0;
+    color: var(--muted);
+  }
 
-.button-row {
-  display: flex;
-  gap: 10px;
-  margin-top: 8px;
-}
+  &__button-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+  }
 
-.action-button {
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--text);
-  padding: 10px 12px;
-  border-radius: 12px;
-  cursor: pointer;
-}
+  &__button {
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 12px;
+    cursor: pointer;
+  }
 
-.action-button-danger {
-  border-color: rgba(239, 68, 68, 0.45);
+  &__button--danger {
+    border-color: rgba(239, 68, 68, 0.45);
+  }
 }
 </style>

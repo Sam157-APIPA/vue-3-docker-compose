@@ -1,6 +1,7 @@
 import {
   ACTION_TYPES,
   DEFAULT_ENEMY_HP,
+  DEFAULT_LEVEL_GOLD,
   ENEMY_REWARD,
   LEVEL_KEYS,
   MAX_TOWER_LEVEL,
@@ -31,7 +32,7 @@ const createLevelState = (levelKey) => {
     selectedTowerId: '',
     selectedEnemyId: '',
     draggingEnemyId: '',
-    gold: sourceLevel.startGold || 300,
+    gold: sourceLevel.startGold || DEFAULT_LEVEL_GOLD,
     towerIndex: 1,
     enemyIndex: 1,
     level: {
@@ -155,7 +156,7 @@ export default {
       state.selectedEnemyId = enemyId
     },
 
-    SET_DRAGGING_ENEMY_ID (state, enemyId) {
+    [MUTATION_TYPES.SET_DRAGGING_ENEMY_ID] (state, enemyId) {
       state.draggingEnemyId = enemyId
     },
 
@@ -390,7 +391,7 @@ export default {
       if (slot.towerId) {
         commit(MUTATION_TYPES.SET_SELECTED_TOWER_ID, slot.towerId)
         commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, '')
-        commit('SET_DRAGGING_ENEMY_ID', '')
+        commit(MUTATION_TYPES.SET_DRAGGING_ENEMY_ID, '')
         return
       }
 
@@ -415,13 +416,13 @@ export default {
         towerType: state.buildMode
       })
       commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, '')
-      commit('SET_DRAGGING_ENEMY_ID', '')
+      commit(MUTATION_TYPES.SET_DRAGGING_ENEMY_ID, '')
     },
 
     [ACTION_TYPES.TOWER_CLICK] ({ commit }, towerId) {
       commit(MUTATION_TYPES.SET_SELECTED_TOWER_ID, towerId)
       commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, '')
-      commit('SET_DRAGGING_ENEMY_ID', '')
+      commit(MUTATION_TYPES.SET_DRAGGING_ENEMY_ID, '')
     },
 
     [ACTION_TYPES.BUILD_TOWER] ({ commit, state }, payload) {
@@ -438,7 +439,7 @@ export default {
       commit(MUTATION_TYPES.SET_GOLD, state.gold - config.price)
       commit(MUTATION_TYPES.BUILD_TOWER, payload)
       commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, '')
-      commit('SET_DRAGGING_ENEMY_ID', '')
+      commit(MUTATION_TYPES.SET_DRAGGING_ENEMY_ID, '')
     },
 
     [ACTION_TYPES.UPGRADE_TOWER] ({ commit, state }, towerId) {
@@ -497,12 +498,12 @@ export default {
       })
 
       commit(MUTATION_TYPES.SET_SELECTED_TOWER_ID, '')
-      commit('SET_DRAGGING_ENEMY_ID', '')
+      commit(MUTATION_TYPES.SET_DRAGGING_ENEMY_ID, '')
     },
 
     [ACTION_TYPES.ENEMY_POINTER_DOWN] ({ commit }, payload) {
       commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, payload.enemyId)
-      commit('SET_DRAGGING_ENEMY_ID', payload.enemyId)
+      commit(MUTATION_TYPES.SET_DRAGGING_ENEMY_ID, payload.enemyId)
       commit(MUTATION_TYPES.SET_SELECTED_TOWER_ID, '')
     },
 
@@ -519,7 +520,7 @@ export default {
     },
 
     [ACTION_TYPES.CANVAS_POINTER_UP] ({ commit }) {
-      commit('SET_DRAGGING_ENEMY_ID', '')
+      commit(MUTATION_TYPES.SET_DRAGGING_ENEMY_ID, '')
     },
 
     [ACTION_TYPES.RUN_DAMAGE_STEP] ({ commit }) {

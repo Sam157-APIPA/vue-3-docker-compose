@@ -1,8 +1,8 @@
 <template>
-  <div class="frame">
+  <div class="game-canvas">
     <svg
         ref="svgRef"
-        class="svg-canvas"
+        class="game-canvas__svg"
         :style="{ width: `${level.size.w}px`, maxWidth: '100%' }"
         :viewBox="`0 0 ${level.size.w} ${level.size.h}`"
         @pointermove="(event) => onCanvasPointerMove(event)"
@@ -11,7 +11,7 @@
         @mouseleave="() => onCanvasPointerUp()"
     >
       <rect
-          class="background-rect"
+          class="game-canvas__background"
           x="0"
           y="0"
           :width="level.size.w"
@@ -21,7 +21,7 @@
 
       <polyline
           v-if="pathPoints"
-          class="path-line-back"
+          class="game-canvas__path-back"
           :points="pathPoints"
           fill="none"
           stroke="#334155"
@@ -33,7 +33,7 @@
 
       <polyline
           v-if="pathPoints"
-          class="path-line-front"
+          class="game-canvas__path-front"
           :points="pathPoints"
           fill="none"
           stroke="#111827"
@@ -45,7 +45,7 @@
 
       <circle
           v-if="level.enemySpawn"
-          class="enemy-spawn-point"
+          class="game-canvas__spawn-point"
           :cx="level.enemySpawn.x"
           :cy="level.enemySpawn.y"
           r="8"
@@ -55,10 +55,10 @@
       <g
           v-for="slot in slots"
           :key="slot.id"
-          class="slot-group"
+          class="game-canvas__slot-group"
       >
         <circle
-            class="slot-circle clickable"
+            class="game-canvas__slot-circle game-canvas__slot-circle--clickable"
             :cx="slot.pos.x"
             :cy="slot.pos.y"
             r="14"
@@ -71,11 +71,11 @@
 
         <g
             v-if="slot.towerId && towersById[slot.towerId]"
-            class="tower-group clickable"
+            class="game-canvas__tower-group game-canvas__tower-group--clickable"
             @click.stop="() => emitTowerClick(slot.towerId)"
         >
           <circle
-              class="tower-circle"
+              class="game-canvas__tower-circle"
               :cx="slot.pos.x"
               :cy="slot.pos.y"
               r="10"
@@ -83,7 +83,7 @@
           />
 
           <text
-              class="tower-level-label"
+              class="game-canvas__tower-level-label"
               :x="slot.pos.x"
               :y="slot.pos.y + 4"
               text-anchor="middle"
@@ -95,9 +95,9 @@
         </g>
       </g>
 
-      <g v-if="rangeCircle" class="range-group">
+      <g v-if="rangeCircle" class="game-canvas__range-group">
         <circle
-            class="range-fill"
+            class="game-canvas__range-fill"
             :cx="rangeCircle.x"
             :cy="rangeCircle.y"
             :r="rangeCircle.r"
@@ -105,7 +105,7 @@
             opacity="0.12"
         />
         <circle
-            class="range-stroke"
+            class="game-canvas__range-stroke"
             :cx="rangeCircle.x"
             :cy="rangeCircle.y"
             :r="rangeCircle.r"
@@ -120,11 +120,11 @@
       <g
           v-for="enemy in enemies"
           :key="enemy.id"
-          class="enemy-group clickable"
+          class="game-canvas__enemy-group game-canvas__enemy-group--clickable"
           @pointerdown.stop="(event) => onEnemyPointerDown(enemy.id, event)"
       >
         <circle
-            class="enemy-circle"
+            class="game-canvas__enemy-circle"
             :cx="enemy.pos.x"
             :cy="enemy.pos.y"
             r="10"
@@ -134,7 +134,7 @@
         />
 
         <text
-            class="enemy-hp-label"
+            class="game-canvas__enemy-hp-label"
             :x="enemy.pos.x"
             :y="enemy.pos.y - 14"
             text-anchor="middle"
@@ -146,7 +146,7 @@
       </g>
 
       <text
-          class="helper-text"
+          class="game-canvas__helper-text"
           x="12"
           y="24"
           font-size="12"
@@ -309,36 +309,38 @@ export default {
 }
 </script>
 
-<style scoped>
-.frame {
+<style scoped lang="scss">
+.game-canvas {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   overflow-x: auto;
   overflow-y: hidden;
   background: #0b1220;
-}
 
-.svg-canvas {
-  display: block;
-  height: auto;
-  touch-action: none;
-}
+  &__svg {
+    display: block;
+    height: auto;
+    touch-action: none;
+  }
 
-.clickable {
-  cursor: pointer;
-}
+  &__slot-circle--clickable,
+  &__tower-group--clickable,
+  &__enemy-group--clickable {
+    cursor: pointer;
+  }
 
-.tower-level-label {
-  user-select: none;
-}
+  &__tower-level-label {
+    user-select: none;
+  }
 
-.enemy-hp-label {
-  user-select: none;
-  pointer-events: none;
-}
+  &__enemy-hp-label {
+    user-select: none;
+    pointer-events: none;
+  }
 
-.helper-text {
-  user-select: none;
-  pointer-events: none;
+  &__helper-text {
+    user-select: none;
+    pointer-events: none;
+  }
 }
 </style>

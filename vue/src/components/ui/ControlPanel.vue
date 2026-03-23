@@ -1,34 +1,34 @@
 <template>
-  <div class="panel-root">
-    <div class="panel-header">
-      <h2 class="panel-title">Controls</h2>
-      <p class="panel-text">Build, spawn and test damage manually</p>
+  <div class="control-panel">
+    <div class="control-panel__header">
+      <h2 class="control-panel__title">Controls</h2>
+      <p class="control-panel__text">Build, spawn and test damage manually</p>
     </div>
 
-    <div class="section-block">
-      <p class="section-label">Build mode</p>
+    <div class="control-panel__section">
+      <p class="control-panel__section-label">Build mode</p>
 
-      <div class="button-grid">
+      <div class="control-panel__button-grid">
         <button
             v-for="towerType in towerTypes"
             :key="towerType"
-            class="action-button"
-            :class="{ 'action-button-active': buildMode === towerType }"
+            class="control-panel__button"
+            :class="{ 'control-panel__button--active': buildMode === towerType }"
             type="button"
             @click="() => emitSelectBuild(towerType)"
         >
-          <span class="button-title">{{ getTowerTitle(towerType) }}</span>
-          <span class="button-price">{{ getTowerPrice(towerType) }} gold</span>
+          <span class="control-panel__button-title">{{ getTowerTitle(towerType) }}</span>
+          <span class="control-panel__button-price">{{ getTowerPrice(towerType) }} gold</span>
         </button>
       </div>
     </div>
 
-    <div class="section-block">
-      <p class="section-label">Enemy test</p>
+    <div class="control-panel__section">
+      <p class="control-panel__section-label">Enemy test</p>
 
-      <div class="button-column">
+      <div class="control-panel__button-column">
         <button
-            class="action-button"
+            class="control-panel__button"
             type="button"
             @click="() => emitSpawnEnemy()"
         >
@@ -36,7 +36,7 @@
         </button>
 
         <button
-            class="action-button"
+            class="control-panel__button"
             type="button"
             @click="() => emitRunStep()"
         >
@@ -44,7 +44,7 @@
         </button>
 
         <button
-            class="action-button action-button-danger"
+            class="control-panel__button control-panel__button--danger"
             type="button"
             @click="() => emitResetLevel()"
         >
@@ -119,8 +119,8 @@ export default {
 }
 </script>
 
-<style scoped>
-.panel-root {
+<style scoped lang="scss">
+.control-panel {
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -128,81 +128,81 @@ export default {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-}
 
-.panel-header {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
+  &__header {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
 
-.panel-title {
-  margin: 0;
-  font-size: 22px;
-}
+  &__title {
+    margin: 0;
+    font-size: 22px;
+  }
 
-.panel-text {
-  margin: 0;
-  color: var(--muted);
-  font-size: 14px;
-}
+  &__text {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
 
-.section-block {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+  &__section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
 
-.section-label {
-  margin: 0;
-  font-size: 14px;
-  color: var(--muted);
-}
+  &__section-label {
+    margin: 0;
+    font-size: 14px;
+    color: var(--muted);
+  }
 
-.button-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-}
+  &__button-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
 
-.button-column {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+  &__button-column {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
 
-.action-button {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  border: 1px solid var(--line);
-  background: var(--panel-2);
-  color: var(--text);
-  padding: 10px 12px;
-  border-radius: 12px;
-  cursor: pointer;
-}
+  &__button {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 12px;
+    cursor: pointer;
+  }
 
-.action-button:hover {
-  border-color: var(--accent);
-}
+  &__button:hover {
+    border-color: var(--accent);
+  }
 
-.action-button-active {
-  background: rgba(56, 189, 248, 0.14);
-  border-color: var(--accent);
-}
+  &__button--active {
+    background: rgba(56, 189, 248, 0.14);
+    border-color: var(--accent);
+  }
 
-.action-button-danger {
-  border-color: rgba(239, 68, 68, 0.4);
-}
+  &__button--danger {
+    border-color: rgba(239, 68, 68, 0.4);
+  }
 
-.button-title {
-  font-weight: bold;
-}
+  &__button-title {
+    font-weight: bold;
+  }
 
-.button-price {
-  color: var(--muted);
-  font-size: 13px;
+  &__button-price {
+    color: var(--muted);
+    font-size: 13px;
+  }
 }
 </style>

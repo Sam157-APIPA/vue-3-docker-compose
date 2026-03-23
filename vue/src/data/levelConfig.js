@@ -4,6 +4,7 @@ export const levelConfig = {
   [LEVEL_KEYS.FIRST]: {
     id: LEVEL_KEYS.FIRST,
     title: 'First Level',
+    startGold: 300,
     size: {
       w: 900,
       h: 520
@@ -35,9 +36,10 @@ export const levelConfig = {
     ]
   },
 
-  secondLevel: {
-    id: 'secondLevel',
+  [LEVEL_KEYS.SECOND]: {
+    id: LEVEL_KEYS.SECOND,
     title: 'Second Level',
+    startGold: 350,
     size: {
       w: 900,
       h: 520
