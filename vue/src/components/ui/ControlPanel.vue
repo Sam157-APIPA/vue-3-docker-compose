@@ -181,19 +181,19 @@ export default {
     padding: 10px 12px;
     border-radius: 12px;
     cursor: pointer;
-  }
 
-  &__button:hover {
-    border-color: var(--accent);
-  }
+    &:hover {
+      border-color: var(--accent);
+    }
 
-  &__button--active {
-    background: rgba(56, 189, 248, 0.14);
-    border-color: var(--accent);
-  }
+    &--active {
+      background: rgba(56, 189, 248, 0.14);
+      border-color: var(--accent);
+    }
 
-  &__button--danger {
-    border-color: rgba(239, 68, 68, 0.4);
+    &--danger {
+      border-color: rgba(239, 68, 68, 0.4);
+    }
   }
 
   &__button-title {
