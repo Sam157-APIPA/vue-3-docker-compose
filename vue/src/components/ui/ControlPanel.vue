@@ -2,7 +2,7 @@
   <div class="control-panel">
     <div class="control-panel__header">
       <h2 class="control-panel__title">Controls</h2>
-      <p class="control-panel__text">Build, spawn and test damage manually</p>
+      <p class="control-panel__text">Build towers and manage waves</p>
     </div>
 
     <div class="control-panel__section">
@@ -24,23 +24,30 @@
     </div>
 
     <div class="control-panel__section">
-      <p class="control-panel__section-label">Enemy test</p>
+      <p class="control-panel__section-label">Level flow</p>
+
+      <div class="control-panel__status-box">
+        <p class="control-panel__status-line">Wave: {{ currentWaveNumber }}/{{ totalWaves }}</p>
+        <p class="control-panel__status-line">Status: {{ statusText }}</p>
+      </div>
 
       <div class="control-panel__button-column">
         <button
             class="control-panel__button"
+            :disabled="!canStartWave"
             type="button"
-            @click="() => emitSpawnEnemy()"
+            @click="() => emitStartWave()"
         >
-          Spawn enemy at green point
+          Start next wave
         </button>
 
         <button
             class="control-panel__button"
+            :disabled="!waveInProgress"
             type="button"
-            @click="() => emitRunStep()"
+            @click="() => emitTogglePause()"
         >
-          Run damage step
+          {{ isRunning ? 'Pause wave' : 'Continue wave' }}
         </button>
 
         <button
@@ -48,9 +55,23 @@
             type="button"
             @click="() => emitResetLevel()"
         >
-          Reset level
+          Restart level
         </button>
       </div>
+
+      <p
+          v-if="isGameOver"
+          class="control-panel__message control-panel__message--danger"
+      >
+        The base is destroyed.
+      </p>
+
+      <p
+          v-if="isVictory"
+          class="control-panel__message control-panel__message--success"
+      >
+        All waves are cleared.
+      </p>
     </div>
   </div>
 </template>
@@ -69,13 +90,45 @@ export default {
     towerTypes: {
       type: Array,
       required: true
+    },
+    isRunning: {
+      type: Boolean,
+      required: true
+    },
+    waveInProgress: {
+      type: Boolean,
+      required: true
+    },
+    canStartWave: {
+      type: Boolean,
+      required: true
+    },
+    currentWaveNumber: {
+      type: Number,
+      required: true
+    },
+    totalWaves: {
+      type: Number,
+      required: true
+    },
+    statusText: {
+      type: String,
+      required: true
+    },
+    isGameOver: {
+      type: Boolean,
+      required: true
+    },
+    isVictory: {
+      type: Boolean,
+      required: true
     }
   },
 
   emits: [
     'select-build',
-    'spawn-enemy',
-    'run-step',
+    'start-wave',
+    'toggle-pause',
     'reset-level'
   ],
 
@@ -84,12 +137,12 @@ export default {
       this.$emit('select-build', towerType)
     },
 
-    emitSpawnEnemy () {
-      this.$emit('spawn-enemy')
+    emitStartWave () {
+      this.$emit('start-wave')
     },
 
-    emitRunStep () {
-      this.$emit('run-step')
+    emitTogglePause () {
+      this.$emit('toggle-pause')
     },
 
     emitResetLevel () {
@@ -170,6 +223,21 @@ export default {
     gap: 10px;
   }
 
+  &__status-box {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px;
+    border-radius: 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+  }
+
+  &__status-line {
+    margin: 0;
+    color: var(--text);
+  }
+
   &__button {
     display: flex;
     flex-direction: column;
@@ -184,6 +252,11 @@ export default {
 
     &:hover {
       border-color: var(--accent);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: default;
     }
 
     &--active {
@@ -203,6 +276,19 @@ export default {
   &__button-price {
     color: var(--muted);
     font-size: 13px;
+  }
+
+  &__message {
+    margin: 0;
+    font-size: 14px;
+
+    &--danger {
+      color: var(--danger);
+    }
+
+    &--success {
+      color: var(--success);
+    }
   }
 }
 </style>

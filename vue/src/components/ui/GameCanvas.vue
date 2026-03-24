@@ -1,14 +1,9 @@
 <template>
   <div class="game-canvas">
     <svg
-        ref="svgRef"
         class="game-canvas__svg"
         :style="{ width: `${level.size.w}px`, maxWidth: '100%' }"
         :viewBox="`0 0 ${level.size.w} ${level.size.h}`"
-        @pointermove="(event) => onCanvasPointerMove(event)"
-        @pointerup="() => onCanvasPointerUp()"
-        @pointercancel="() => onCanvasPointerUp()"
-        @mouseleave="() => onCanvasPointerUp()"
     >
       <rect
           class="game-canvas__background"
@@ -50,6 +45,15 @@
           :cy="level.enemySpawn.y"
           r="8"
           fill="#22c55e"
+      />
+
+      <circle
+          v-if="finishPoint"
+          class="game-canvas__finish-point"
+          :cx="finishPoint.x"
+          :cy="finishPoint.y"
+          r="8"
+          fill="#ef4444"
       />
 
       <g
@@ -121,7 +125,7 @@
           v-for="enemy in enemies"
           :key="enemy.id"
           class="game-canvas__enemy-group game-canvas__enemy-group--clickable"
-          @pointerdown.stop="(event) => onEnemyPointerDown(enemy.id, event)"
+          @click.stop="() => emitEnemyClick(enemy.id)"
       >
         <circle
             class="game-canvas__enemy-circle"
@@ -152,7 +156,7 @@
           font-size="12"
           fill="#94a3b8"
       >
-        Green point is enemy spawn. Drag enemy manually. Press Run damage step to test tower range.
+        Green point is spawn. Red point is finish. Click enemy to inspect.
       </text>
     </svg>
   </div>
@@ -196,9 +200,7 @@ export default {
   emits: [
     'slot-click',
     'tower-click',
-    'enemy-pointer-down',
-    'canvas-pointer-move',
-    'canvas-pointer-up'
+    'enemy-click'
   ],
 
   computed: {
@@ -210,6 +212,16 @@ export default {
       }
 
       return points.map((point) => `${point.x},${point.y}`).join(' ')
+    },
+
+    finishPoint () {
+      const points = this.level.path || []
+
+      if (!points.length) {
+        return null
+      }
+
+      return points[points.length - 1]
     },
 
     rangeCircle () {
@@ -246,6 +258,10 @@ export default {
       this.$emit('tower-click', towerId)
     },
 
+    emitEnemyClick (enemyId) {
+      this.$emit('enemy-click', enemyId)
+    },
+
     towerColor (type) {
       if (type === 'sniper') {
         return '#22c55e'
@@ -256,54 +272,6 @@ export default {
       }
 
       return '#60a5fa'
-    },
-
-    getSvgPoint (event) {
-      const svg = this.$refs.svgRef
-
-      if (!svg) {
-        return {
-          x: 0,
-          y: 0
-        }
-      }
-
-      const rect = svg.getBoundingClientRect()
-      const viewWidth = this.level.size.w
-      const viewHeight = this.level.size.h
-
-      return {
-        x: Math.round(((event.clientX - rect.left) / rect.width) * viewWidth),
-        y: Math.round(((event.clientY - rect.top) / rect.height) * viewHeight)
-      }
-    },
-
-    onEnemyPointerDown (enemyId, event) {
-      if (event.button !== 0) {
-        return
-      }
-
-      if (event.target && event.target.setPointerCapture) {
-        event.target.setPointerCapture(event.pointerId)
-      }
-
-      const point = this.getSvgPoint(event)
-
-      this.$emit('enemy-pointer-down', {
-        enemyId,
-        x: point.x,
-        y: point.y
-      })
-    },
-
-    onCanvasPointerMove (event) {
-      const point = this.getSvgPoint(event)
-
-      this.$emit('canvas-pointer-move', point)
-    },
-
-    onCanvasPointerUp () {
-      this.$emit('canvas-pointer-up')
     }
   }
 }
@@ -320,7 +288,6 @@ export default {
   &__svg {
     display: block;
     height: auto;
-    touch-action: none;
   }
 
   &__slot-circle--clickable,

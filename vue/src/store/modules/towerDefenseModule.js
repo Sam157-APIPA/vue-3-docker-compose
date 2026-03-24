@@ -1,8 +1,9 @@
 import {
   ACTION_TYPES,
-  DEFAULT_ENEMY_HP,
+  DEFAULT_BASE_HP,
+  DEFAULT_ENEMY_SPEED,
   DEFAULT_LEVEL_GOLD,
-  ENEMY_REWARD,
+  ENEMY_CONFIG,
   LEVEL_KEYS,
   MAX_TOWER_LEVEL,
   MUTATION_TYPES,
@@ -31,10 +32,18 @@ const createLevelState = (levelKey) => {
     buildMode: null,
     selectedTowerId: '',
     selectedEnemyId: '',
-    draggingEnemyId: '',
     gold: sourceLevel.startGold || DEFAULT_LEVEL_GOLD,
+    baseHp: sourceLevel.baseHp || DEFAULT_BASE_HP,
     towerIndex: 1,
     enemyIndex: 1,
+    currentWaveIndex: -1,
+    waveInProgress: false,
+    isRunning: false,
+    isGameOver: false,
+    isVictory: false,
+    waveElapsedMs: 0,
+    nextSpawnIndex: 0,
+    pendingSpawns: [],
     level: {
       ...sourceLevel
     },
@@ -59,6 +68,81 @@ const getDistance = (firstPoint, secondPoint) => {
   const dy = firstPoint.y - secondPoint.y
 
   return Math.sqrt(dx * dx + dy * dy)
+}
+
+const getPathTotalLength = (path) => {
+  if (!path || path.length < 2) {
+    return 0
+  }
+
+  let total = 0
+
+  for (let index = 1; index < path.length; index += 1) {
+    total += getDistance(path[index - 1], path[index])
+  }
+
+  return total
+}
+
+const getPointAtDistance = (path, distance) => {
+  if (!path || !path.length) {
+    return {
+      x: 0,
+      y: 0
+    }
+  }
+
+  if (path.length === 1 || distance <= 0) {
+    return {
+      x: path[0].x,
+      y: path[0].y
+    }
+  }
+
+  let passedDistance = 0
+
+  for (let index = 1; index < path.length; index += 1) {
+    const from = path[index - 1]
+    const to = path[index]
+    const segmentLength = getDistance(from, to)
+
+    if (passedDistance + segmentLength >= distance) {
+      const offset = distance - passedDistance
+      const ratio = segmentLength === 0 ? 0 : offset / segmentLength
+
+      return {
+        x: Math.round(from.x + (to.x - from.x) * ratio),
+        y: Math.round(from.y + (to.y - from.y) * ratio)
+      }
+    }
+
+    passedDistance += segmentLength
+  }
+
+  const lastPoint = path[path.length - 1]
+
+  return {
+    x: lastPoint.x,
+    y: lastPoint.y
+  }
+}
+
+const createEnemy = (enemyId, enemyType, level) => {
+  const config = ENEMY_CONFIG[enemyType] || ENEMY_CONFIG.basic
+  const startPoint = level.path && level.path.length ? level.path[0] : level.enemySpawn
+
+  return {
+    id: enemyId,
+    type: enemyType,
+    hp: config.hp,
+    reward: config.reward,
+    color: config.color,
+    distance: 0,
+    pos: {
+      x: startPoint.x,
+      y: startPoint.y
+    }
+  }
 }
 
 export default {
@@ -101,6 +185,51 @@ export default {
       return state.gold
     },
 
+    baseHp (state) {
+      return state.baseHp
+    },
+
+    isRunning (state) {
+      return state.isRunning
+    },
+
+    waveInProgress (state) {
+      return state.waveInProgress
+    },
+
+    isGameOver (state) {
+      return state.isGameOver
+    },
+
+    isVictory (state) {
+      return state.isVictory
+    },
+
+    currentWaveIndex (state) {
+      return state.currentWaveIndex
+    },
+
+    totalWaves (state) {
+      return state.level.waves ? state.level.waves.length : 0
+    },
+
+    currentWaveNumber (state) {
+      if (state.currentWaveIndex < 0) {
+        return 0
+      }
+
+      return state.currentWaveIndex + 1
+    },
+
+    canStartWave (state) {
+      const totalWaves = state.level.waves ? state.level.waves.length : 0
+
+      return !state.waveInProgress &&
+        !state.isGameOver &&
+        !state.isVictory &&
+        state.currentWaveIndex < totalWaves - 1
+    },
+
     selectedTower (state) {
       if (!state.selectedTowerId) {
         return null
@@ -125,6 +254,26 @@ export default {
 
     towerTypes () {
       return Object.values(TOWER_TYPES)
+    },
+
+    statusText (state) {
+      if (state.isGameOver) {
+        return 'Game over'
+      }
+
+      if (state.isVictory) {
+        return 'Victory'
+      }
+
+      if (state.waveInProgress && state.isRunning) {
+        return 'Wave is running'
+      }
+
+      if (state.waveInProgress && !state.isRunning) {
+        return 'Wave is paused'
+      }
+
+      return 'Waiting for next wave'
     }
   },
 
@@ -138,10 +287,18 @@ export default {
       state.buildMode = payload.buildMode
       state.selectedTowerId = payload.selectedTowerId
       state.selectedEnemyId = payload.selectedEnemyId
-      state.draggingEnemyId = payload.draggingEnemyId
       state.towerIndex = payload.towerIndex
       state.enemyIndex = payload.enemyIndex
       state.gold = payload.gold
+      state.baseHp = payload.baseHp
+      state.currentWaveIndex = payload.currentWaveIndex
+      state.waveInProgress = payload.waveInProgress
+      state.isRunning = payload.isRunning
+      state.isGameOver = payload.isGameOver
+      state.isVictory = payload.isVictory
+      state.waveElapsedMs = payload.waveElapsedMs
+      state.nextSpawnIndex = payload.nextSpawnIndex
+      state.pendingSpawns = payload.pendingSpawns
     },
 
     [MUTATION_TYPES.SET_BUILD_MODE] (state, towerType) {
@@ -154,10 +311,6 @@ export default {
 
     [MUTATION_TYPES.SET_SELECTED_ENEMY_ID] (state, enemyId) {
       state.selectedEnemyId = enemyId
-    },
-
-    [MUTATION_TYPES.SET_DRAGGING_ENEMY_ID] (state, enemyId) {
-      state.draggingEnemyId = enemyId
     },
 
     [MUTATION_TYPES.SET_GOLD] (state, gold) {
@@ -182,7 +335,8 @@ export default {
           id: towerId,
           slotId: slot.id,
           type: payload.towerType,
-          level: 1
+          level: 1,
+          cooldownMs: 0
         }
       }
 
@@ -232,62 +386,101 @@ export default {
       }
     },
 
-    [MUTATION_TYPES.SPAWN_ENEMY] (state, payload) {
-      state.enemyIndex += 1
+    [MUTATION_TYPES.START_WAVE] (state) {
+      const nextWaveIndex = state.currentWaveIndex + 1
+      const wave = state.level.waves[nextWaveIndex]
 
-      state.enemies = [
-        ...state.enemies,
-        payload
-      ]
+      if (!wave) {
+        return
+      }
 
-      state.selectedEnemyId = payload.id
-    },
-
-    [MUTATION_TYPES.UPDATE_ENEMY_POSITION] (state, payload) {
-      state.enemies = state.enemies.map((enemy) => {
-        if (enemy.id !== payload.enemyId) {
-          return enemy
-        }
-
+      state.currentWaveIndex = nextWaveIndex
+      state.waveInProgress = true
+      state.isRunning = true
+      state.waveElapsedMs = 0
+      state.nextSpawnIndex = 0
+      state.pendingSpawns = wave.spawns.map((spawn) => {
         return {
-          ...enemy,
-          pos: {
-            x: payload.x,
-            y: payload.y
-          }
+          type: spawn.type,
+          delayMs: spawn.delayMs
         }
       })
+      state.buildMode = null
+      state.selectedEnemyId = ''
+      state.selectedTowerId = ''
     },
 
-    [MUTATION_TYPES.REMOVE_ENEMY] (state, enemyId) {
-      state.enemies = state.enemies.filter((enemy) => enemy.id !== enemyId)
+    [MUTATION_TYPES.TOGGLE_PAUSE] (state) {
+      if (!state.waveInProgress || state.isGameOver || state.isVictory) {
+        return
+      }
 
-      if (state.selectedEnemyId === enemyId) {
+      state.isRunning = !state.isRunning
+    },
+
+    [MUTATION_TYPES.APPLY_TICK] (state, deltaMs) {
+      if (!state.isRunning || state.isGameOver || state.isVictory) {
+        return
+      }
+
+      const levelPath = state.level.path || []
+      const pathTotalLength = getPathTotalLength(levelPath)
+      const enemySpeed = state.level.enemySpeed || DEFAULT_ENEMY_SPEED
+
+      state.waveElapsedMs += deltaMs
+
+      while (
+        state.nextSpawnIndex < state.pendingSpawns.length &&
+        state.pendingSpawns[state.nextSpawnIndex].delayMs <= state.waveElapsedMs
+        ) {
+        const spawn = state.pendingSpawns[state.nextSpawnIndex]
+        const enemyId = `enemy${state.enemyIndex}`
+
+        state.enemyIndex += 1
+        state.nextSpawnIndex += 1
+
+        state.enemies = [
+          ...state.enemies,
+          createEnemy(enemyId, spawn.type, state.level)
+        ]
+      }
+
+      let escapedCount = 0
+
+      state.enemies = state.enemies
+        .map((enemy) => {
+          const nextDistance = enemy.distance + (enemySpeed * deltaMs) / 1000
+
+          if (nextDistance >= pathTotalLength) {
+            escapedCount += 1
+            return null
+          }
+
+          return {
+            ...enemy,
+            distance: nextDistance,
+            pos: getPointAtDistance(levelPath, nextDistance)
+          }
+        })
+        .filter(Boolean)
+
+      if (escapedCount > 0) {
+        state.baseHp = Math.max(0, state.baseHp - escapedCount)
+      }
+
+      if (state.baseHp <= 0) {
+        state.isGameOver = true
+        state.isRunning = false
+        state.waveInProgress = false
+        state.pendingSpawns = []
+        state.nextSpawnIndex = 0
+        state.waveElapsedMs = 0
         state.selectedEnemyId = ''
+        return
       }
 
-      if (state.draggingEnemyId === enemyId) {
-        state.draggingEnemyId = ''
-      }
-    },
-
-    [MUTATION_TYPES.RESET_LEVEL] (state, payload) {
-      state.currentLevelKey = payload.currentLevelKey
-      state.buildMode = payload.buildMode
-      state.selectedTowerId = payload.selectedTowerId
-      state.selectedEnemyId = payload.selectedEnemyId
-      state.draggingEnemyId = payload.draggingEnemyId
-      state.towerIndex = payload.towerIndex
-      state.enemyIndex = payload.enemyIndex
-      state.level = payload.level
-      state.slots = payload.slots
-      state.towersById = payload.towersById
-      state.enemies = payload.enemies
-      state.gold = payload.gold
-    },
-
-    [MUTATION_TYPES.APPLY_DAMAGE_STEP] (state) {
       const damageByEnemyId = {}
+      const nextTowersById = {}
 
       state.slots.forEach((slot) => {
         if (!slot.towerId) {
@@ -303,37 +496,52 @@ export default {
         const stats = getTowerStats(tower.type, tower.level)
 
         if (!stats) {
+          nextTowersById[tower.id] = tower
           return
         }
 
-        let nearestEnemy = null
-        let nearestDistance = Infinity
+        let nextCooldownMs = tower.cooldownMs - deltaMs
 
-        state.enemies.forEach((enemy) => {
-          const distance = getDistance(slot.pos, enemy.pos)
-
-          if (distance > stats.range) {
-            return
-          }
-
-          if (distance < nearestDistance) {
-            nearestDistance = distance
-            nearestEnemy = enemy
-          }
-        })
-
-        if (!nearestEnemy) {
-          return
+        if (nextCooldownMs < 0) {
+          nextCooldownMs = 0
         }
 
-        if (!damageByEnemyId[nearestEnemy.id]) {
-          damageByEnemyId[nearestEnemy.id] = 0
+        if (nextCooldownMs === 0) {
+          let nearestEnemy = null
+          let nearestDistance = Infinity
+
+          state.enemies.forEach((enemy) => {
+            const distance = getDistance(slot.pos, enemy.pos)
+
+            if (distance > stats.range) {
+              return
+            }
+
+            if (distance < nearestDistance) {
+              nearestDistance = distance
+              nearestEnemy = enemy
+            }
+          })
+
+          if (nearestEnemy) {
+            if (!damageByEnemyId[nearestEnemy.id]) {
+              damageByEnemyId[nearestEnemy.id] = 0
+            }
+
+            damageByEnemyId[nearestEnemy.id] += stats.damage
+            nextCooldownMs = 1000 / stats.fireRate
+          }
         }
 
-        damageByEnemyId[nearestEnemy.id] += stats.damage
+        nextTowersById[tower.id] = {
+          ...tower,
+          cooldownMs: nextCooldownMs
+        }
       })
 
-      const removedEnemies = []
+      state.towersById = nextTowersById
+
+      let rewardSum = 0
 
       state.enemies = state.enemies
         .map((enemy) => {
@@ -341,7 +549,8 @@ export default {
           const nextHp = enemy.hp - damage
 
           if (nextHp <= 0) {
-            removedEnemies.push(enemy)
+            rewardSum += enemy.reward || 0
+            return null
           }
 
           return {
@@ -349,10 +558,10 @@ export default {
             hp: nextHp
           }
         })
-        .filter((enemy) => enemy.hp > 0)
+        .filter(Boolean)
 
-      if (removedEnemies.length) {
-        state.gold += removedEnemies.length * ENEMY_REWARD
+      if (rewardSum > 0) {
+        state.gold += rewardSum
       }
 
       if (state.selectedEnemyId) {
@@ -362,6 +571,46 @@ export default {
           state.selectedEnemyId = ''
         }
       }
+
+      const allSpawnsCompleted = state.nextSpawnIndex >= state.pendingSpawns.length
+      const noEnemiesLeft = state.enemies.length === 0
+
+      if (state.waveInProgress && allSpawnsCompleted && noEnemiesLeft) {
+        state.waveInProgress = false
+        state.isRunning = false
+        state.pendingSpawns = []
+        state.nextSpawnIndex = 0
+        state.waveElapsedMs = 0
+
+        const totalWaves = state.level.waves ? state.level.waves.length : 0
+
+        if (state.currentWaveIndex >= totalWaves - 1) {
+          state.isVictory = true
+        }
+      }
+    },
+
+    [MUTATION_TYPES.RESET_LEVEL] (state, payload) {
+      state.currentLevelKey = payload.currentLevelKey
+      state.buildMode = payload.buildMode
+      state.selectedTowerId = payload.selectedTowerId
+      state.selectedEnemyId = payload.selectedEnemyId
+      state.towerIndex = payload.towerIndex
+      state.enemyIndex = payload.enemyIndex
+      state.level = payload.level
+      state.slots = payload.slots
+      state.towersById = payload.towersById
+      state.enemies = payload.enemies
+      state.gold = payload.gold
+      state.baseHp = payload.baseHp
+      state.currentWaveIndex = payload.currentWaveIndex
+      state.waveInProgress = payload.waveInProgress
+      state.isRunning = payload.isRunning
+      state.isGameOver = payload.isGameOver
+      state.isVictory = payload.isVictory
+      state.waveElapsedMs = payload.waveElapsedMs
+      state.nextSpawnIndex = payload.nextSpawnIndex
+      state.pendingSpawns = payload.pendingSpawns
     }
   },
 
@@ -379,6 +628,7 @@ export default {
 
       commit(MUTATION_TYPES.SET_BUILD_MODE, nextValue)
       commit(MUTATION_TYPES.SET_SELECTED_TOWER_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, '')
     },
 
     [ACTION_TYPES.SLOT_CLICK] ({ commit, state }, slotId) {
@@ -391,7 +641,6 @@ export default {
       if (slot.towerId) {
         commit(MUTATION_TYPES.SET_SELECTED_TOWER_ID, slot.towerId)
         commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, '')
-        commit(MUTATION_TYPES.SET_DRAGGING_ENEMY_ID, '')
         return
       }
 
@@ -416,13 +665,16 @@ export default {
         towerType: state.buildMode
       })
       commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, '')
-      commit(MUTATION_TYPES.SET_DRAGGING_ENEMY_ID, '')
     },
 
     [ACTION_TYPES.TOWER_CLICK] ({ commit }, towerId) {
       commit(MUTATION_TYPES.SET_SELECTED_TOWER_ID, towerId)
       commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, '')
-      commit(MUTATION_TYPES.SET_DRAGGING_ENEMY_ID, '')
+    },
+
+    [ACTION_TYPES.ENEMY_CLICK] ({ commit }, enemyId) {
+      commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, enemyId)
+      commit(MUTATION_TYPES.SET_SELECTED_TOWER_ID, '')
     },
 
     [ACTION_TYPES.BUILD_TOWER] ({ commit, state }, payload) {
@@ -439,7 +691,6 @@ export default {
       commit(MUTATION_TYPES.SET_GOLD, state.gold - config.price)
       commit(MUTATION_TYPES.BUILD_TOWER, payload)
       commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, '')
-      commit(MUTATION_TYPES.SET_DRAGGING_ENEMY_ID, '')
     },
 
     [ACTION_TYPES.UPGRADE_TOWER] ({ commit, state }, towerId) {
@@ -483,48 +734,24 @@ export default {
       commit(MUTATION_TYPES.REMOVE_TOWER, towerId)
     },
 
-    [ACTION_TYPES.SPAWN_ENEMY] ({ commit, state }) {
-      const enemyId = `enemy${state.enemyIndex}`
-
-      commit(MUTATION_TYPES.SPAWN_ENEMY, {
-        id: enemyId,
-        type: 'basic',
-        hp: DEFAULT_ENEMY_HP,
-        color: '#ef4444',
-        pos: {
-          x: state.level.enemySpawn.x,
-          y: state.level.enemySpawn.y
-        }
-      })
-
-      commit(MUTATION_TYPES.SET_SELECTED_TOWER_ID, '')
-      commit(MUTATION_TYPES.SET_DRAGGING_ENEMY_ID, '')
-    },
-
-    [ACTION_TYPES.ENEMY_POINTER_DOWN] ({ commit }, payload) {
-      commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, payload.enemyId)
-      commit(MUTATION_TYPES.SET_DRAGGING_ENEMY_ID, payload.enemyId)
-      commit(MUTATION_TYPES.SET_SELECTED_TOWER_ID, '')
-    },
-
-    [ACTION_TYPES.CANVAS_POINTER_MOVE] ({ commit, state }, payload) {
-      if (!state.draggingEnemyId) {
+    [ACTION_TYPES.START_WAVE] ({ commit, getters }) {
+      if (!getters.canStartWave) {
         return
       }
 
-      commit(MUTATION_TYPES.UPDATE_ENEMY_POSITION, {
-        enemyId: state.draggingEnemyId,
-        x: payload.x,
-        y: payload.y
-      })
+      commit(MUTATION_TYPES.START_WAVE)
     },
 
-    [ACTION_TYPES.CANVAS_POINTER_UP] ({ commit }) {
-      commit(MUTATION_TYPES.SET_DRAGGING_ENEMY_ID, '')
+    [ACTION_TYPES.TOGGLE_PAUSE] ({ commit }) {
+      commit(MUTATION_TYPES.TOGGLE_PAUSE)
     },
 
-    [ACTION_TYPES.RUN_DAMAGE_STEP] ({ commit }) {
-      commit(MUTATION_TYPES.APPLY_DAMAGE_STEP)
+    [ACTION_TYPES.TICK] ({ commit, state }, deltaMs) {
+      if (!state.isRunning) {
+        return
+      }
+
+      commit(MUTATION_TYPES.APPLY_TICK, deltaMs)
     }
   }
 }
