@@ -2,12 +2,15 @@
   <div class="tower-panel">
     <div class="tower-panel__header">
       <h2 class="tower-panel__title">Selection</h2>
-      <p class="tower-panel__text">Tower info, enemy info and economy</p>
+      <p class="tower-panel__text">Tower info, enemy info and level status</p>
     </div>
 
     <div class="tower-panel__card">
-      <p class="tower-panel__card-title">Economy</p>
+      <p class="tower-panel__card-title">Level status</p>
       <p class="tower-panel__line">Gold: {{ gold }}</p>
+      <p class="tower-panel__line">Base HP: {{ baseHp }}</p>
+      <p class="tower-panel__line">Wave: {{ currentWaveNumber }}/{{ totalWaves }}</p>
+      <p class="tower-panel__line">Status: {{ statusText }}</p>
     </div>
 
     <div v-if="selectedTower" class="tower-panel__card">
@@ -16,6 +19,7 @@
       <p class="tower-panel__line">Level: {{ selectedTower.level }}</p>
       <p class="tower-panel__line">Range: {{ towerStats ? towerStats.range : '-' }}</p>
       <p class="tower-panel__line">Damage: {{ towerStats ? towerStats.damage : '-' }}</p>
+      <p class="tower-panel__line">Fire rate: {{ towerStats ? towerStats.fireRate : '-' }}</p>
 
       <div class="tower-panel__button-row">
         <button
@@ -43,9 +47,14 @@
     <div v-if="selectedEnemy" class="tower-panel__card">
       <p class="tower-panel__card-title">Selected enemy</p>
       <p class="tower-panel__line">Id: {{ selectedEnemy.id }}</p>
+      <p class="tower-panel__line">Type: {{ selectedEnemy.type }}</p>
       <p class="tower-panel__line">HP: {{ Math.round(selectedEnemy.hp) }}</p>
       <p class="tower-panel__line">X: {{ selectedEnemy.pos.x }}</p>
       <p class="tower-panel__line">Y: {{ selectedEnemy.pos.y }}</p>
+    </div>
+
+    <div v-else class="tower-panel__empty-state">
+      <p class="tower-panel__empty-text">No enemy selected</p>
     </div>
   </div>
 </template>
@@ -69,6 +78,22 @@ export default {
     },
     gold: {
       type: Number,
+      required: true
+    },
+    baseHp: {
+      type: Number,
+      required: true
+    },
+    currentWaveNumber: {
+      type: Number,
+      required: true
+    },
+    totalWaves: {
+      type: Number,
+      required: true
+    },
+    statusText: {
+      type: String,
       required: true
     }
   },

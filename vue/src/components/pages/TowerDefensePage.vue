@@ -4,7 +4,7 @@
       <div class="tower-defense-page__title-block">
         <h1 class="tower-defense-page__title">{{ level.title }}</h1>
         <p class="tower-defense-page__text">
-          Manual level, fixed slots, build, upgrade, remove, manual enemy movement and economy
+          Path movement, waves, enemy types, economy and restart
         </p>
       </div>
 
@@ -17,8 +17,16 @@
           Back to levels
         </button>
 
-        <div class="tower-defense-page__gold-box">
+        <div class="tower-defense-page__info-box">
           Gold: {{ gold }}
+        </div>
+
+        <div class="tower-defense-page__info-box">
+          Base HP: {{ baseHp }}
+        </div>
+
+        <div class="tower-defense-page__info-box">
+          Wave: {{ currentWaveNumber }}/{{ totalWaves }}
         </div>
       </div>
     </div>
@@ -35,9 +43,7 @@
             :get-tower-stats="getTowerStats"
             @slot-click="(slotId) => onSlotClick(slotId)"
             @tower-click="(towerId) => onTowerClick(towerId)"
-            @enemy-pointer-down="(payload) => onEnemyPointerDown(payload)"
-            @canvas-pointer-move="(payload) => onCanvasPointerMove(payload)"
-            @canvas-pointer-up="() => onCanvasPointerUp()"
+            @enemy-click="(enemyId) => onEnemyClick(enemyId)"
         />
       </div>
 
@@ -45,9 +51,17 @@
         <ControlPanel
             :build-mode="buildMode"
             :tower-types="towerTypes"
+            :is-running="isRunning"
+            :wave-in-progress="waveInProgress"
+            :can-start-wave="canStartWave"
+            :current-wave-number="currentWaveNumber"
+            :total-waves="totalWaves"
+            :status-text="statusText"
+            :is-game-over="isGameOver"
+            :is-victory="isVictory"
             @select-build="(towerType) => onSelectBuild(towerType)"
-            @spawn-enemy="() => onSpawnEnemy()"
-            @run-step="() => onRunStep()"
+            @start-wave="() => onStartWave()"
+            @toggle-pause="() => onTogglePause()"
             @reset-level="() => onResetLevel()"
         />
 
@@ -56,6 +70,10 @@
             :selected-enemy="selectedEnemy"
             :get-tower-stats="getTowerStats"
             :gold="gold"
+            :base-hp="baseHp"
+            :current-wave-number="currentWaveNumber"
+            :total-waves="totalWaves"
+            :status-text="statusText"
             @upgrade-tower="(towerId) => onUpgradeTower(towerId)"
             @remove-tower="(towerId) => onRemoveTower(towerId)"
         />
@@ -66,7 +84,7 @@
 
 <script>
 import { mapActions, mapGetters } from 'vuex'
-import { ACTION_TYPES, LEVEL_KEYS } from '@/constants/gameConstants'
+import { ACTION_TYPES, GAME_TICK_MS, LEVEL_KEYS } from '@/constants/gameConstants'
 import GameCanvas from '@/components/ui/GameCanvas.vue'
 import ControlPanel from '@/components/ui/ControlPanel.vue'
 import TowerPanel from '@/components/ui/TowerPanel.vue'
@@ -87,6 +105,12 @@ export default {
     }
   },
 
+  data () {
+    return {
+      loopId: 0
+    }
+  },
+
   computed: {
     ...mapGetters('towerDefense', [
       'level',
@@ -100,12 +124,26 @@ export default {
       'selectedEnemy',
       'getTowerStats',
       'towerTypes',
-      'gold'
+      'gold',
+      'baseHp',
+      'isRunning',
+      'waveInProgress',
+      'canStartWave',
+      'currentWaveNumber',
+      'totalWaves',
+      'statusText',
+      'isGameOver',
+      'isVictory'
     ])
   },
 
   mounted () {
     this.initLevel(this.levelKey)
+    this.startGameLoop()
+  },
+
+  beforeUnmount () {
+    this.stopGameLoop()
   },
 
   beforeRouteUpdate (to, from, next) {
@@ -119,15 +157,31 @@ export default {
       toggleBuildMode: ACTION_TYPES.TOGGLE_BUILD_MODE,
       slotClick: ACTION_TYPES.SLOT_CLICK,
       towerClick: ACTION_TYPES.TOWER_CLICK,
+      enemyClick: ACTION_TYPES.ENEMY_CLICK,
       upgradeTower: ACTION_TYPES.UPGRADE_TOWER,
       removeTower: ACTION_TYPES.REMOVE_TOWER,
-      spawnEnemy: ACTION_TYPES.SPAWN_ENEMY,
-      enemyPointerDown: ACTION_TYPES.ENEMY_POINTER_DOWN,
-      canvasPointerMove: ACTION_TYPES.CANVAS_POINTER_MOVE,
-      canvasPointerUp: ACTION_TYPES.CANVAS_POINTER_UP,
-      runDamageStep: ACTION_TYPES.RUN_DAMAGE_STEP,
+      startWave: ACTION_TYPES.START_WAVE,
+      togglePause: ACTION_TYPES.TOGGLE_PAUSE,
+      tick: ACTION_TYPES.TICK,
       resetLevel: ACTION_TYPES.RESET_LEVEL
     }),
+
+    startGameLoop () {
+      this.stopGameLoop()
+
+      this.loopId = window.setInterval(() => {
+        this.tick(GAME_TICK_MS)
+      }, GAME_TICK_MS)
+    },
+
+    stopGameLoop () {
+      if (!this.loopId) {
+        return
+      }
+
+      window.clearInterval(this.loopId)
+      this.loopId = 0
+    },
 
     goToLevels () {
       this.$router.push('/levels')
@@ -145,6 +199,10 @@ export default {
       this.towerClick(towerId)
     },
 
+    onEnemyClick (enemyId) {
+      this.enemyClick(enemyId)
+    },
+
     onUpgradeTower (towerId) {
       this.upgradeTower(towerId)
     },
@@ -153,24 +211,12 @@ export default {
       this.removeTower(towerId)
     },
 
-    onSpawnEnemy () {
-      this.spawnEnemy()
+    onStartWave () {
+      this.startWave()
     },
 
-    onEnemyPointerDown (payload) {
-      this.enemyPointerDown(payload)
-    },
-
-    onCanvasPointerMove (payload) {
-      this.canvasPointerMove(payload)
-    },
-
-    onCanvasPointerUp () {
-      this.canvasPointerUp()
-    },
-
-    onRunStep () {
-      this.runDamageStep()
+    onTogglePause () {
+      this.togglePause()
     },
 
     onResetLevel () {
@@ -212,6 +258,7 @@ export default {
   &__header-actions {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 12px;
   }
 
@@ -224,7 +271,7 @@ export default {
     cursor: pointer;
   }
 
-  &__gold-box {
+  &__info-box {
     padding: 12px 16px;
     border: 1px solid var(--line);
     border-radius: 12px;
