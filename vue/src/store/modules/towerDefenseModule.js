@@ -1,9 +1,13 @@
 import {
   ACTION_TYPES,
+  ARTILLERY_CONFIG,
+  BARRICADE_CONFIG,
   DEFAULT_BASE_HP,
   DEFAULT_ENEMY_SPEED,
   DEFAULT_LEVEL_GOLD,
   ENEMY_CONFIG,
+  FIGHTER_CONFIG,
+  FIGHTER_TYPES,
   LEVEL_KEYS,
   MAX_TOWER_LEVEL,
   MUTATION_TYPES,
@@ -27,15 +31,32 @@ const createLevelState = (levelKey) => {
     }
   })
 
+  const barricadeSlots = (sourceLevel.barricadeSlots || []).map((slot) => {
+    return {
+      id: slot.id,
+      pos: {
+        x: slot.pos.x,
+        y: slot.pos.y
+      },
+      barricadeId: null
+    }
+  })
+
   return {
     currentLevelKey: sourceLevel.id,
     buildMode: null,
+    barricadeMode: false,
+    artilleryMode: false,
     selectedTowerId: '',
     selectedEnemyId: '',
+    selectedFighterId: '',
+    selectedBarricadeId: '',
     gold: sourceLevel.startGold || DEFAULT_LEVEL_GOLD,
     baseHp: sourceLevel.baseHp || DEFAULT_BASE_HP,
     towerIndex: 1,
     enemyIndex: 1,
+    fighterIndex: 1,
+    barricadeIndex: 1,
     currentWaveIndex: -1,
     waveInProgress: false,
     isRunning: false,
@@ -48,8 +69,11 @@ const createLevelState = (levelKey) => {
       ...sourceLevel
     },
     slots,
+    barricadeSlots,
     towersById: {},
-    enemies: []
+    barricadesById: {},
+    enemies: [],
+    fighters: []
   }
 }
 
@@ -127,6 +151,10 @@ const getPointAtDistance = (path, distance) => {
   }
 }
 
+const getReversePath = (path) => {
+  return [...path].reverse()
+}
+
 const createEnemy = (enemyId, enemyType, level) => {
   const config = ENEMY_CONFIG[enemyType] || ENEMY_CONFIG.basic
   const startPoint = level.path && level.path.length ? level.path[0] : level.enemySpawn
@@ -134,13 +162,244 @@ const createEnemy = (enemyId, enemyType, level) => {
   return {
     id: enemyId,
     type: enemyType,
+    title: config.title,
     hp: config.hp,
+    maxHp: config.hp,
     reward: config.reward,
     color: config.color,
+    isRanged: config.isRanged,
+    attackDamage: config.attackDamage,
+    attackRange: config.attackRange,
+    attackRate: config.attackRate,
+    cooldownMs: 0,
     distance: 0,
     pos: {
       x: startPoint.x,
       y: startPoint.y
+    }
+  }
+}
+
+const createFighter = (fighterId, level) => {
+  const config = FIGHTER_CONFIG[FIGHTER_TYPES.GUARD]
+  const reversePath = getReversePath(level.path || [])
+  const startPoint = reversePath.length ? reversePath[0] : { x: 0, y: 0 }
+
+  return {
+    id: fighterId,
+    type: FIGHTER_TYPES.GUARD,
+    title: config.title,
+    hp: config.hp,
+    maxHp: config.hp,
+    damage: config.damage,
+    range: config.range,
+    speed: config.speed,
+    attackRate: config.attackRate,
+    cooldownMs: 0,
+    distance: 0,
+    color: config.color,
+    pos: {
+      x: startPoint.x,
+      y: startPoint.y
+    }
+  }
+}
+
+const findTowerSlot = (slots, towerId) => {
+  return slots.find((slot) => slot.towerId === towerId) || null
+}
+
+const findNearestEnemyInRange = (enemies, point, range) => {
+  let nearestEnemy = null
+  let nearestDistance = Infinity
+
+  enemies.forEach((enemy) => {
+    const distance = getDistance(point, enemy.pos)
+
+    if (distance > range) {
+      return
+    }
+
+    if (distance < nearestDistance) {
+      nearestDistance = distance
+      nearestEnemy = enemy
+    }
+  })
+
+  return nearestEnemy
+}
+
+const findNearestTargetForEnemy = (enemy, state) => {
+  let nearestTarget = null
+  let nearestDistance = Infinity
+
+  Object.values(state.barricadesById).forEach((barricade) => {
+    const distance = getDistance(enemy.pos, barricade.pos)
+
+    if (distance > enemy.attackRange) {
+      return
+    }
+
+    if (distance < nearestDistance) {
+      nearestDistance = distance
+      nearestTarget = {
+        id: barricade.id,
+        type: 'barricade',
+        pos: barricade.pos
+      }
+    }
+  })
+
+  state.fighters.forEach((fighter) => {
+    const distance = getDistance(enemy.pos, fighter.pos)
+
+    if (distance > enemy.attackRange) {
+      return
+    }
+
+    if (distance < nearestDistance) {
+      nearestDistance = distance
+      nearestTarget = {
+        id: fighter.id,
+        type: 'fighter',
+        pos: fighter.pos
+      }
+    }
+  })
+
+  if (enemy.isRanged) {
+    Object.values(state.towersById).forEach((tower) => {
+      const slot = findTowerSlot(state.slots, tower.id)
+
+      if (!slot) {
+        return
+      }
+
+      const distance = getDistance(enemy.pos, slot.pos)
+
+      if (distance > enemy.attackRange) {
+        return
+      }
+
+      if (distance < nearestDistance) {
+        nearestDistance = distance
+        nearestTarget = {
+          id: tower.id,
+          type: 'tower',
+          pos: slot.pos
+        }
+      }
+    })
+  }
+
+  return nearestTarget
+}
+
+const applyDamageToEntities = (state, damageToEnemies, damageToTowers, damageToFighters, damageToBarricades) => {
+  let rewardSum = 0
+
+  state.enemies = state.enemies
+    .map((enemy) => {
+      const damage = damageToEnemies[enemy.id] || 0
+      const nextHp = enemy.hp - damage
+
+      if (nextHp <= 0) {
+        rewardSum += enemy.reward || 0
+        return null
+      }
+
+      return {
+        ...enemy,
+        hp: nextHp
+      }
+    })
+    .filter(Boolean)
+
+  if (rewardSum > 0) {
+    state.gold += rewardSum
+  }
+
+  const nextTowersById = {}
+
+  Object.values(state.towersById).forEach((tower) => {
+    const damage = damageToTowers[tower.id] || 0
+    const nextHp = tower.hp - damage
+
+    if (nextHp <= 0) {
+      const slot = findTowerSlot(state.slots, tower.id)
+
+      if (slot) {
+        slot.towerId = null
+      }
+
+      if (state.selectedTowerId === tower.id) {
+        state.selectedTowerId = ''
+      }
+
+      return
+    }
+
+    nextTowersById[tower.id] = {
+      ...tower,
+      hp: nextHp
+    }
+  })
+
+  state.towersById = nextTowersById
+
+  state.fighters = state.fighters
+    .map((fighter) => {
+      const damage = damageToFighters[fighter.id] || 0
+      const nextHp = fighter.hp - damage
+
+      if (nextHp <= 0) {
+        if (state.selectedFighterId === fighter.id) {
+          state.selectedFighterId = ''
+        }
+
+        return null
+      }
+
+      return {
+        ...fighter,
+        hp: nextHp
+      }
+    })
+    .filter(Boolean)
+
+  const nextBarricadesById = {}
+
+  Object.values(state.barricadesById).forEach((barricade) => {
+    const damage = damageToBarricades[barricade.id] || 0
+    const nextHp = barricade.hp - damage
+
+    if (nextHp <= 0) {
+      const slot = state.barricadeSlots.find((item) => item.barricadeId === barricade.id)
+
+      if (slot) {
+        slot.barricadeId = null
+      }
+
+      if (state.selectedBarricadeId === barricade.id) {
+        state.selectedBarricadeId = ''
+      }
+
+      return
+    }
+
+    nextBarricadesById[barricade.id] = {
+      ...barricade,
+      hp: nextHp
+    }
+  })
+
+  state.barricadesById = nextBarricadesById
+
+  if (state.selectedEnemyId) {
+    const hasEnemy = state.enemies.some((enemy) => enemy.id === state.selectedEnemyId)
+
+    if (!hasEnemy) {
+      state.selectedEnemyId = ''
     }
   }
 }
@@ -161,12 +420,24 @@ export default {
       return state.slots
     },
 
+    barricadeSlots (state) {
+      return state.barricadeSlots
+    },
+
     towersById (state) {
       return state.towersById
     },
 
+    barricadesById (state) {
+      return state.barricadesById
+    },
+
     enemies (state) {
       return state.enemies
+    },
+
+    fighters (state) {
+      return state.fighters
     },
 
     selectedTowerId (state) {
@@ -177,8 +448,24 @@ export default {
       return state.selectedEnemyId
     },
 
+    selectedFighterId (state) {
+      return state.selectedFighterId
+    },
+
+    selectedBarricadeId (state) {
+      return state.selectedBarricadeId
+    },
+
     buildMode (state) {
       return state.buildMode
+    },
+
+    barricadeMode (state) {
+      return state.barricadeMode
+    },
+
+    artilleryMode (state) {
+      return state.artilleryMode
     },
 
     gold (state) {
@@ -246,6 +533,22 @@ export default {
       return state.enemies.find((enemy) => enemy.id === state.selectedEnemyId) || null
     },
 
+    selectedFighter (state) {
+      if (!state.selectedFighterId) {
+        return null
+      }
+
+      return state.fighters.find((fighter) => fighter.id === state.selectedFighterId) || null
+    },
+
+    selectedBarricade (state) {
+      if (!state.selectedBarricadeId) {
+        return null
+      }
+
+      return state.barricadesById[state.selectedBarricadeId] || null
+    },
+
     getTowerStats () {
       return (towerType, towerLevel) => {
         return getTowerStats(towerType, towerLevel)
@@ -282,13 +585,22 @@ export default {
       state.currentLevelKey = payload.currentLevelKey
       state.level = payload.level
       state.slots = payload.slots
+      state.barricadeSlots = payload.barricadeSlots
       state.towersById = payload.towersById
+      state.barricadesById = payload.barricadesById
       state.enemies = payload.enemies
+      state.fighters = payload.fighters
       state.buildMode = payload.buildMode
+      state.barricadeMode = payload.barricadeMode
+      state.artilleryMode = payload.artilleryMode
       state.selectedTowerId = payload.selectedTowerId
       state.selectedEnemyId = payload.selectedEnemyId
+      state.selectedFighterId = payload.selectedFighterId
+      state.selectedBarricadeId = payload.selectedBarricadeId
       state.towerIndex = payload.towerIndex
       state.enemyIndex = payload.enemyIndex
+      state.fighterIndex = payload.fighterIndex
+      state.barricadeIndex = payload.barricadeIndex
       state.gold = payload.gold
       state.baseHp = payload.baseHp
       state.currentWaveIndex = payload.currentWaveIndex
@@ -305,12 +617,28 @@ export default {
       state.buildMode = towerType
     },
 
+    [MUTATION_TYPES.SET_BARRICADE_MODE] (state, value) {
+      state.barricadeMode = value
+    },
+
+    [MUTATION_TYPES.SET_ARTILLERY_MODE] (state, value) {
+      state.artilleryMode = value
+    },
+
     [MUTATION_TYPES.SET_SELECTED_TOWER_ID] (state, towerId) {
       state.selectedTowerId = towerId
     },
 
     [MUTATION_TYPES.SET_SELECTED_ENEMY_ID] (state, enemyId) {
       state.selectedEnemyId = enemyId
+    },
+
+    [MUTATION_TYPES.SET_SELECTED_FIGHTER_ID] (state, fighterId) {
+      state.selectedFighterId = fighterId
+    },
+
+    [MUTATION_TYPES.SET_SELECTED_BARRICADE_ID] (state, barricadeId) {
+      state.selectedBarricadeId = barricadeId
     },
 
     [MUTATION_TYPES.SET_GOLD] (state, gold) {
@@ -321,6 +649,12 @@ export default {
       const slot = state.slots.find((item) => item.id === payload.slotId)
 
       if (!slot || slot.towerId) {
+        return
+      }
+
+      const towerStats = getTowerStats(payload.towerType, 1)
+
+      if (!towerStats) {
         return
       }
 
@@ -336,6 +670,8 @@ export default {
           slotId: slot.id,
           type: payload.towerType,
           level: 1,
+          hp: towerStats.hp,
+          maxHp: towerStats.hp,
           cooldownMs: 0
         }
       }
@@ -351,11 +687,20 @@ export default {
         return
       }
 
+      const nextLevel = tower.level + 1
+      const nextStats = getTowerStats(tower.type, nextLevel)
+
+      if (!nextStats) {
+        return
+      }
+
       state.towersById = {
         ...state.towersById,
         [towerId]: {
           ...tower,
-          level: tower.level + 1
+          level: nextLevel,
+          hp: nextStats.hp,
+          maxHp: nextStats.hp
         }
       }
     },
@@ -386,6 +731,76 @@ export default {
       }
     },
 
+    [MUTATION_TYPES.BUILD_BARRICADE] (state, slotId) {
+      const slot = state.barricadeSlots.find((item) => item.id === slotId)
+
+      if (!slot || slot.barricadeId) {
+        return
+      }
+
+      const barricadeId = `barricade${state.barricadeIndex}`
+
+      state.barricadeIndex += 1
+      slot.barricadeId = barricadeId
+
+      state.barricadesById = {
+        ...state.barricadesById,
+        [barricadeId]: {
+          id: barricadeId,
+          slotId: slot.id,
+          title: BARRICADE_CONFIG.BASIC.title,
+          hp: BARRICADE_CONFIG.BASIC.hp,
+          maxHp: BARRICADE_CONFIG.BASIC.hp,
+          pos: {
+            x: slot.pos.x,
+            y: slot.pos.y
+          }
+        }
+      }
+
+      state.selectedBarricadeId = barricadeId
+      state.barricadeMode = false
+    },
+
+    [MUTATION_TYPES.REMOVE_BARRICADE] (state, barricadeId) {
+      const barricade = state.barricadesById[barricadeId]
+
+      if (!barricade) {
+        return
+      }
+
+      const slot = state.barricadeSlots.find((item) => item.id === barricade.slotId)
+
+      if (slot) {
+        slot.barricadeId = null
+      }
+
+      const nextBarricades = {
+        ...state.barricadesById
+      }
+
+      delete nextBarricades[barricadeId]
+
+      state.barricadesById = nextBarricades
+
+      if (state.selectedBarricadeId === barricadeId) {
+        state.selectedBarricadeId = ''
+      }
+    },
+
+    [MUTATION_TYPES.SPAWN_FIGHTER] (state) {
+      const fighterId = `fighter${state.fighterIndex}`
+
+      state.fighterIndex += 1
+
+      state.fighters = [
+        ...state.fighters,
+        createFighter(fighterId, state.level)
+      ]
+
+      state.selectedFighterId = fighterId
+    },
+
     [MUTATION_TYPES.START_WAVE] (state) {
       const nextWaveIndex = state.currentWaveIndex + 1
       const wave = state.level.waves[nextWaveIndex]
@@ -405,9 +820,14 @@ export default {
           delayMs: spawn.delayMs
         }
       })
+
       state.buildMode = null
+      state.barricadeMode = false
+      state.artilleryMode = false
       state.selectedEnemyId = ''
       state.selectedTowerId = ''
+      state.selectedFighterId = ''
+      state.selectedBarricadeId = ''
     },
 
     [MUTATION_TYPES.TOGGLE_PAUSE] (state) {
@@ -418,13 +838,39 @@ export default {
       state.isRunning = !state.isRunning
     },
 
+    [MUTATION_TYPES.APPLY_ARTILLERY] (state, payload) {
+      const damageToEnemies = {}
+
+      state.enemies.forEach((enemy) => {
+        const distance = getDistance(enemy.pos, payload.point)
+
+        if (distance > ARTILLERY_CONFIG.radius) {
+          return
+        }
+
+        const ratio = 1 - distance / ARTILLERY_CONFIG.radius
+        const damage = Math.round(ARTILLERY_CONFIG.maxDamage * ratio)
+
+        if (damage <= 0) {
+          return
+        }
+
+        damageToEnemies[enemy.id] = (damageToEnemies[enemy.id] || 0) + damage
+      })
+
+      applyDamageToEntities(state, damageToEnemies, {}, {}, {})
+      state.artilleryMode = false
+    },
+
     [MUTATION_TYPES.APPLY_TICK] (state, deltaMs) {
       if (!state.isRunning || state.isGameOver || state.isVictory) {
         return
       }
 
       const levelPath = state.level.path || []
+      const reversePath = getReversePath(levelPath)
       const pathTotalLength = getPathTotalLength(levelPath)
+      const reversePathTotalLength = getPathTotalLength(reversePath)
       const enemySpeed = state.level.enemySpeed || DEFAULT_ENEMY_SPEED
 
       state.waveElapsedMs += deltaMs
@@ -445,41 +891,11 @@ export default {
         ]
       }
 
-      let escapedCount = 0
+      const damageToEnemies = {}
+      const damageToTowers = {}
+      const damageToFighters = {}
+      const damageToBarricades = {}
 
-      state.enemies = state.enemies
-        .map((enemy) => {
-          const nextDistance = enemy.distance + (enemySpeed * deltaMs) / 1000
-
-          if (nextDistance >= pathTotalLength) {
-            escapedCount += 1
-            return null
-          }
-
-          return {
-            ...enemy,
-            distance: nextDistance,
-            pos: getPointAtDistance(levelPath, nextDistance)
-          }
-        })
-        .filter(Boolean)
-
-      if (escapedCount > 0) {
-        state.baseHp = Math.max(0, state.baseHp - escapedCount)
-      }
-
-      if (state.baseHp <= 0) {
-        state.isGameOver = true
-        state.isRunning = false
-        state.waveInProgress = false
-        state.pendingSpawns = []
-        state.nextSpawnIndex = 0
-        state.waveElapsedMs = 0
-        state.selectedEnemyId = ''
-        return
-      }
-
-      const damageByEnemyId = {}
       const nextTowersById = {}
 
       state.slots.forEach((slot) => {
@@ -507,28 +923,10 @@ export default {
         }
 
         if (nextCooldownMs === 0) {
-          let nearestEnemy = null
-          let nearestDistance = Infinity
-
-          state.enemies.forEach((enemy) => {
-            const distance = getDistance(slot.pos, enemy.pos)
-
-            if (distance > stats.range) {
-              return
-            }
-
-            if (distance < nearestDistance) {
-              nearestDistance = distance
-              nearestEnemy = enemy
-            }
-          })
+          const nearestEnemy = findNearestEnemyInRange(state.enemies, slot.pos, stats.range)
 
           if (nearestEnemy) {
-            if (!damageByEnemyId[nearestEnemy.id]) {
-              damageByEnemyId[nearestEnemy.id] = 0
-            }
-
-            damageByEnemyId[nearestEnemy.id] += stats.damage
+            damageToEnemies[nearestEnemy.id] = (damageToEnemies[nearestEnemy.id] || 0) + stats.damage
             nextCooldownMs = 1000 / stats.fireRate
           }
         }
@@ -541,35 +939,113 @@ export default {
 
       state.towersById = nextTowersById
 
-      let rewardSum = 0
+      state.fighters = state.fighters
+        .map((fighter) => {
+          let nextCooldownMs = fighter.cooldownMs - deltaMs
+
+          if (nextCooldownMs < 0) {
+            nextCooldownMs = 0
+          }
+
+          const targetEnemy = findNearestEnemyInRange(state.enemies, fighter.pos, fighter.range)
+
+          if (targetEnemy) {
+            if (nextCooldownMs === 0) {
+              damageToEnemies[targetEnemy.id] = (damageToEnemies[targetEnemy.id] || 0) + fighter.damage
+              nextCooldownMs = 1000 / fighter.attackRate
+            }
+
+            return {
+              ...fighter,
+              cooldownMs: nextCooldownMs
+            }
+          }
+
+          const nextDistance = fighter.distance + (fighter.speed * deltaMs) / 1000
+
+          if (nextDistance >= reversePathTotalLength) {
+            if (state.selectedFighterId === fighter.id) {
+              state.selectedFighterId = ''
+            }
+
+            return null
+          }
+
+          return {
+            ...fighter,
+            cooldownMs: nextCooldownMs,
+            distance: nextDistance,
+            pos: getPointAtDistance(reversePath, nextDistance)
+          }
+        })
+        .filter(Boolean)
+
+      let escapedCount = 0
 
       state.enemies = state.enemies
         .map((enemy) => {
-          const damage = damageByEnemyId[enemy.id] || 0
-          const nextHp = enemy.hp - damage
+          let nextCooldownMs = enemy.cooldownMs - deltaMs
 
-          if (nextHp <= 0) {
-            rewardSum += enemy.reward || 0
+          if (nextCooldownMs < 0) {
+            nextCooldownMs = 0
+          }
+
+          const target = findNearestTargetForEnemy(enemy, state)
+
+          if (target) {
+            if (nextCooldownMs === 0) {
+              if (target.type === 'barricade') {
+                damageToBarricades[target.id] = (damageToBarricades[target.id] || 0) + enemy.attackDamage
+              }
+
+              if (target.type === 'fighter') {
+                damageToFighters[target.id] = (damageToFighters[target.id] || 0) + enemy.attackDamage
+              }
+
+              if (target.type === 'tower') {
+                damageToTowers[target.id] = (damageToTowers[target.id] || 0) + enemy.attackDamage
+              }
+
+              nextCooldownMs = 1000 / enemy.attackRate
+            }
+
+            return {
+              ...enemy,
+              cooldownMs: nextCooldownMs
+            }
+          }
+
+          const nextDistance = enemy.distance + (enemySpeed * deltaMs) / 1000
+
+          if (nextDistance >= pathTotalLength) {
+            escapedCount += 1
             return null
           }
 
           return {
             ...enemy,
-            hp: nextHp
+            cooldownMs: nextCooldownMs,
+            distance: nextDistance,
+            pos: getPointAtDistance(levelPath, nextDistance)
           }
         })
         .filter(Boolean)
 
-      if (rewardSum > 0) {
-        state.gold += rewardSum
+      if (escapedCount > 0) {
+        state.baseHp = Math.max(0, state.baseHp - escapedCount)
       }
 
-      if (state.selectedEnemyId) {
-        const stillExists = state.enemies.some((enemy) => enemy.id === state.selectedEnemyId)
+      applyDamageToEntities(state, damageToEnemies, damageToTowers, damageToFighters, damageToBarricades)
 
-        if (!stillExists) {
-          state.selectedEnemyId = ''
-        }
+      if (state.baseHp <= 0) {
+        state.isGameOver = true
+        state.isRunning = false
+        state.waveInProgress = false
+        state.pendingSpawns = []
+        state.nextSpawnIndex = 0
+        state.waveElapsedMs = 0
+        state.selectedEnemyId = ''
+        return
       }
 
       const allSpawnsCompleted = state.nextSpawnIndex >= state.pendingSpawns.length
@@ -592,15 +1068,24 @@ export default {
 
     [MUTATION_TYPES.RESET_LEVEL] (state, payload) {
       state.currentLevelKey = payload.currentLevelKey
-      state.buildMode = payload.buildMode
-      state.selectedTowerId = payload.selectedTowerId
-      state.selectedEnemyId = payload.selectedEnemyId
-      state.towerIndex = payload.towerIndex
-      state.enemyIndex = payload.enemyIndex
       state.level = payload.level
       state.slots = payload.slots
+      state.barricadeSlots = payload.barricadeSlots
       state.towersById = payload.towersById
+      state.barricadesById = payload.barricadesById
       state.enemies = payload.enemies
+      state.fighters = payload.fighters
+      state.buildMode = payload.buildMode
+      state.barricadeMode = payload.barricadeMode
+      state.artilleryMode = payload.artilleryMode
+      state.selectedTowerId = payload.selectedTowerId
+      state.selectedEnemyId = payload.selectedEnemyId
+      state.selectedFighterId = payload.selectedFighterId
+      state.selectedBarricadeId = payload.selectedBarricadeId
+      state.towerIndex = payload.towerIndex
+      state.enemyIndex = payload.enemyIndex
+      state.fighterIndex = payload.fighterIndex
+      state.barricadeIndex = payload.barricadeIndex
       state.gold = payload.gold
       state.baseHp = payload.baseHp
       state.currentWaveIndex = payload.currentWaveIndex
@@ -627,8 +1112,36 @@ export default {
       const nextValue = state.buildMode === towerType ? null : towerType
 
       commit(MUTATION_TYPES.SET_BUILD_MODE, nextValue)
+      commit(MUTATION_TYPES.SET_BARRICADE_MODE, false)
+      commit(MUTATION_TYPES.SET_ARTILLERY_MODE, false)
       commit(MUTATION_TYPES.SET_SELECTED_TOWER_ID, '')
       commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_FIGHTER_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_BARRICADE_ID, '')
+    },
+
+    [ACTION_TYPES.TOGGLE_BARRICADE_MODE] ({ commit, state }) {
+      const nextValue = !state.barricadeMode
+
+      commit(MUTATION_TYPES.SET_BARRICADE_MODE, nextValue)
+      commit(MUTATION_TYPES.SET_BUILD_MODE, null)
+      commit(MUTATION_TYPES.SET_ARTILLERY_MODE, false)
+      commit(MUTATION_TYPES.SET_SELECTED_TOWER_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_FIGHTER_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_BARRICADE_ID, '')
+    },
+
+    [ACTION_TYPES.TOGGLE_ARTILLERY_MODE] ({ commit, state }) {
+      const nextValue = !state.artilleryMode
+
+      commit(MUTATION_TYPES.SET_ARTILLERY_MODE, nextValue)
+      commit(MUTATION_TYPES.SET_BUILD_MODE, null)
+      commit(MUTATION_TYPES.SET_BARRICADE_MODE, false)
+      commit(MUTATION_TYPES.SET_SELECTED_TOWER_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_FIGHTER_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_BARRICADE_ID, '')
     },
 
     [ACTION_TYPES.SLOT_CLICK] ({ commit, state }, slotId) {
@@ -641,6 +1154,8 @@ export default {
       if (slot.towerId) {
         commit(MUTATION_TYPES.SET_SELECTED_TOWER_ID, slot.towerId)
         commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, '')
+        commit(MUTATION_TYPES.SET_SELECTED_FIGHTER_ID, '')
+        commit(MUTATION_TYPES.SET_SELECTED_BARRICADE_ID, '')
         return
       }
 
@@ -665,16 +1180,67 @@ export default {
         towerType: state.buildMode
       })
       commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_FIGHTER_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_BARRICADE_ID, '')
+    },
+
+    [ACTION_TYPES.BARRICADE_SLOT_CLICK] ({ commit, state }, slotId) {
+      const slot = state.barricadeSlots.find((item) => item.id === slotId)
+
+      if (!slot) {
+        return
+      }
+
+      if (slot.barricadeId) {
+        commit(MUTATION_TYPES.SET_SELECTED_BARRICADE_ID, slot.barricadeId)
+        commit(MUTATION_TYPES.SET_SELECTED_TOWER_ID, '')
+        commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, '')
+        commit(MUTATION_TYPES.SET_SELECTED_FIGHTER_ID, '')
+        return
+      }
+
+      if (!state.barricadeMode) {
+        commit(MUTATION_TYPES.SET_SELECTED_BARRICADE_ID, '')
+        return
+      }
+
+      if (state.gold < BARRICADE_CONFIG.BASIC.price) {
+        return
+      }
+
+      commit(MUTATION_TYPES.SET_GOLD, state.gold - BARRICADE_CONFIG.BASIC.price)
+      commit(MUTATION_TYPES.BUILD_BARRICADE, slotId)
+      commit(MUTATION_TYPES.SET_SELECTED_TOWER_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_FIGHTER_ID, '')
     },
 
     [ACTION_TYPES.TOWER_CLICK] ({ commit }, towerId) {
       commit(MUTATION_TYPES.SET_SELECTED_TOWER_ID, towerId)
       commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_FIGHTER_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_BARRICADE_ID, '')
     },
 
     [ACTION_TYPES.ENEMY_CLICK] ({ commit }, enemyId) {
       commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, enemyId)
       commit(MUTATION_TYPES.SET_SELECTED_TOWER_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_FIGHTER_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_BARRICADE_ID, '')
+    },
+
+    [ACTION_TYPES.FIGHTER_CLICK] ({ commit }, fighterId) {
+      commit(MUTATION_TYPES.SET_SELECTED_FIGHTER_ID, fighterId)
+      commit(MUTATION_TYPES.SET_SELECTED_TOWER_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_BARRICADE_ID, '')
+    },
+
+    [ACTION_TYPES.BARRICADE_CLICK] ({ commit }, barricadeId) {
+      commit(MUTATION_TYPES.SET_SELECTED_BARRICADE_ID, barricadeId)
+      commit(MUTATION_TYPES.SET_SELECTED_TOWER_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_FIGHTER_ID, '')
     },
 
     [ACTION_TYPES.BUILD_TOWER] ({ commit, state }, payload) {
@@ -691,6 +1257,8 @@ export default {
       commit(MUTATION_TYPES.SET_GOLD, state.gold - config.price)
       commit(MUTATION_TYPES.BUILD_TOWER, payload)
       commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_FIGHTER_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_BARRICADE_ID, '')
     },
 
     [ACTION_TYPES.UPGRADE_TOWER] ({ commit, state }, towerId) {
@@ -734,6 +1302,35 @@ export default {
       commit(MUTATION_TYPES.REMOVE_TOWER, towerId)
     },
 
+    [ACTION_TYPES.REMOVE_BARRICADE] ({ commit, state }, barricadeId) {
+      const barricade = state.barricadesById[barricadeId]
+
+      if (!barricade) {
+        return
+      }
+
+      commit(MUTATION_TYPES.SET_GOLD, state.gold + BARRICADE_CONFIG.BASIC.refund)
+      commit(MUTATION_TYPES.REMOVE_BARRICADE, barricadeId)
+    },
+
+    [ACTION_TYPES.SPAWN_FIGHTER] ({ commit, state }) {
+      const config = FIGHTER_CONFIG[FIGHTER_TYPES.GUARD]
+
+      if (!config) {
+        return
+      }
+
+      if (state.gold < config.price) {
+        return
+      }
+
+      commit(MUTATION_TYPES.SET_GOLD, state.gold - config.price)
+      commit(MUTATION_TYPES.SPAWN_FIGHTER)
+      commit(MUTATION_TYPES.SET_SELECTED_TOWER_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_ENEMY_ID, '')
+      commit(MUTATION_TYPES.SET_SELECTED_BARRICADE_ID, '')
+    },
+
     [ACTION_TYPES.START_WAVE] ({ commit, getters }) {
       if (!getters.canStartWave) {
         return
@@ -744,6 +1341,19 @@ export default {
 
     [ACTION_TYPES.TOGGLE_PAUSE] ({ commit }) {
       commit(MUTATION_TYPES.TOGGLE_PAUSE)
+    },
+
+    [ACTION_TYPES.CANVAS_CLICK] ({ commit, state }, point) {
+      if (!state.artilleryMode) {
+        return
+      }
+
+      if (state.gold < ARTILLERY_CONFIG.price) {
+        return
+      }
+
+      commit(MUTATION_TYPES.SET_GOLD, state.gold - ARTILLERY_CONFIG.price)
+      commit(MUTATION_TYPES.APPLY_ARTILLERY, { point })
     },
 
     [ACTION_TYPES.TICK] ({ commit, state }, deltaMs) {
