@@ -326,24 +326,24 @@ export default {
     background: var(--panel-2);
     color: var(--text);
     cursor: pointer;
-  }
 
-  &__button:hover {
-    border-color: var(--accent);
-  }
+    &:hover {
+      border-color: var(--accent);
+    }
 
-  &__button:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
+    &:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
 
-  &__button--active {
-    background: rgba(56, 189, 248, 0.14);
-    border-color: var(--accent);
-  }
+    &--active {
+      background: rgba(56, 189, 248, 0.14);
+      border-color: var(--accent);
+    }
 
-  &__button--danger {
-    border-color: rgba(239, 68, 68, 0.4);
+    &--danger {
+      border-color: rgba(239, 68, 68, 0.4);
+    }
   }
 
   &__button-title {
@@ -359,14 +359,15 @@ export default {
     margin: 0;
     font-size: 14px;
     color: var(--muted);
-  }
 
-  &__message--danger {
-    color: var(--danger);
-  }
 
-  &__message--success {
-    color: var(--success);
+    &--danger {
+      color: var(--danger);
+    }
+
+    &--success {
+      color: var(--success);
+    }
   }
 }
 </style>
