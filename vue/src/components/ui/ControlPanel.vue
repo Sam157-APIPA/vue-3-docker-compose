@@ -2,11 +2,11 @@
   <div class="control-panel">
     <div class="control-panel__header">
       <h2 class="control-panel__title">Controls</h2>
-      <p class="control-panel__text">Build towers and manage waves</p>
+      <p class="control-panel__text">Build and manage the whole defense line</p>
     </div>
 
     <div class="control-panel__section">
-      <p class="control-panel__section-label">Build mode</p>
+      <p class="control-panel__section-label">Towers</p>
 
       <div class="control-panel__button-grid">
         <button
@@ -24,9 +24,45 @@
     </div>
 
     <div class="control-panel__section">
+      <p class="control-panel__section-label">Support</p>
+
+      <div class="control-panel__button-column">
+        <button
+            class="control-panel__button"
+            :class="{ 'control-panel__button--active': barricadeMode }"
+            type="button"
+            @click="() => emitToggleBarricade()"
+        >
+          <span class="control-panel__button-title">Barricade mode</span>
+          <span class="control-panel__button-price">80 gold</span>
+        </button>
+
+        <button
+            class="control-panel__button"
+            type="button"
+            @click="() => emitSpawnFighter()"
+        >
+          <span class="control-panel__button-title">Call guard</span>
+          <span class="control-panel__button-price">90 gold</span>
+        </button>
+
+        <button
+            class="control-panel__button"
+            :class="{ 'control-panel__button--active': artilleryMode }"
+            type="button"
+            @click="() => emitToggleArtillery()"
+        >
+          <span class="control-panel__button-title">Artillery mode</span>
+          <span class="control-panel__button-price">140 gold</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="control-panel__section">
       <p class="control-panel__section-label">Level flow</p>
 
       <div class="control-panel__status-box">
+        <p class="control-panel__status-line">Gold: {{ gold }}</p>
         <p class="control-panel__status-line">Wave: {{ currentWaveNumber }}/{{ totalWaves }}</p>
         <p class="control-panel__status-line">Status: {{ statusText }}</p>
       </div>
@@ -60,6 +96,20 @@
       </div>
 
       <p
+          v-if="artilleryMode"
+          class="control-panel__message"
+      >
+        Click on the map to strike artillery.
+      </p>
+
+      <p
+          v-if="barricadeMode"
+          class="control-panel__message"
+      >
+        Click on a road slot to place a barricade.
+      </p>
+
+      <p
           v-if="isGameOver"
           class="control-panel__message control-panel__message--danger"
       >
@@ -87,8 +137,20 @@ export default {
       type: String,
       default: null
     },
+    barricadeMode: {
+      type: Boolean,
+      required: true
+    },
+    artilleryMode: {
+      type: Boolean,
+      required: true
+    },
     towerTypes: {
       type: Array,
+      required: true
+    },
+    gold: {
+      type: Number,
       required: true
     },
     isRunning: {
@@ -127,6 +189,9 @@ export default {
 
   emits: [
     'select-build',
+    'toggle-barricade',
+    'spawn-fighter',
+    'toggle-artillery',
     'start-wave',
     'toggle-pause',
     'reset-level'
@@ -135,6 +200,18 @@ export default {
   methods: {
     emitSelectBuild (towerType) {
       this.$emit('select-build', towerType)
+    },
+
+    emitToggleBarricade () {
+      this.$emit('toggle-barricade')
+    },
+
+    emitSpawnFighter () {
+      this.$emit('spawn-fighter')
+    },
+
+    emitToggleArtillery () {
+      this.$emit('toggle-artillery')
     },
 
     emitStartWave () {
@@ -243,11 +320,11 @@ export default {
     flex-direction: column;
     align-items: flex-start;
     gap: 4px;
+    padding: 10px 12px;
     border: 1px solid var(--line);
+    border-radius: 12px;
     background: var(--panel-2);
     color: var(--text);
-    padding: 10px 12px;
-    border-radius: 12px;
     cursor: pointer;
 
     &:hover {
@@ -281,6 +358,8 @@ export default {
   &__message {
     margin: 0;
     font-size: 14px;
+    color: var(--muted);
+
 
     &--danger {
       color: var(--danger);

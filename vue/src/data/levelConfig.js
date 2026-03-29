@@ -4,7 +4,7 @@ export const levelConfig = {
   [LEVEL_KEYS.FIRST]: {
     id: LEVEL_KEYS.FIRST,
     title: 'First Level',
-    startGold: 300,
+    startGold: 320,
     baseHp: 3,
     enemySpeed: 95,
     size: {
@@ -36,35 +36,45 @@ export const levelConfig = {
         pos: { x: 600, y: 200 }
       }
     ],
+    barricadeSlots: [
+      {
+        id: 'roadA',
+        pos: { x: 220, y: 260 }
+      },
+      {
+        id: 'roadB',
+        pos: { x: 520, y: 120 }
+      }
+    ],
     waves: [
       {
         id: 'wave1',
         spawns: [
           { type: ENEMY_TYPES.BASIC, delayMs: 0 },
           { type: ENEMY_TYPES.BASIC, delayMs: 900 },
-          { type: ENEMY_TYPES.BASIC, delayMs: 1800 },
-          { type: ENEMY_TYPES.SWARM, delayMs: 2600 }
+          { type: ENEMY_TYPES.SWARM, delayMs: 1700 },
+          { type: ENEMY_TYPES.RANGED_1, delayMs: 2600 }
         ]
       },
       {
         id: 'wave2',
         spawns: [
           { type: ENEMY_TYPES.BASIC, delayMs: 0 },
-          { type: ENEMY_TYPES.SWARM, delayMs: 600 },
-          { type: ENEMY_TYPES.SWARM, delayMs: 1200 },
-          { type: ENEMY_TYPES.BASIC, delayMs: 1900 },
-          { type: ENEMY_TYPES.TANK, delayMs: 3000 }
+          { type: ENEMY_TYPES.RANGED_1, delayMs: 800 },
+          { type: ENEMY_TYPES.SWARM, delayMs: 1300 },
+          { type: ENEMY_TYPES.SWARM, delayMs: 1700 },
+          { type: ENEMY_TYPES.TANK, delayMs: 2800 }
         ]
       },
       {
         id: 'wave3',
         spawns: [
-          { type: ENEMY_TYPES.TANK, delayMs: 0 },
+          { type: ENEMY_TYPES.RANGED_2, delayMs: 0 },
           { type: ENEMY_TYPES.BASIC, delayMs: 700 },
-          { type: ENEMY_TYPES.BASIC, delayMs: 1400 },
-          { type: ENEMY_TYPES.SWARM, delayMs: 1900 },
-          { type: ENEMY_TYPES.SWARM, delayMs: 2300 },
-          { type: ENEMY_TYPES.TANK, delayMs: 3400 }
+          { type: ENEMY_TYPES.TANK, delayMs: 1500 },
+          { type: ENEMY_TYPES.RANGED_1, delayMs: 2200 },
+          { type: ENEMY_TYPES.SWARM, delayMs: 2600 },
+          { type: ENEMY_TYPES.RANGED_2, delayMs: 3600 }
         ]
       }
     ]
@@ -73,7 +83,7 @@ export const levelConfig = {
   [LEVEL_KEYS.SECOND]: {
     id: LEVEL_KEYS.SECOND,
     title: 'Second Level',
-    startGold: 350,
+    startGold: 360,
     baseHp: 4,
     enemySpeed: 95,
     size: {
@@ -108,37 +118,51 @@ export const levelConfig = {
         pos: { x: 250, y: 350 }
       }
     ],
+    barricadeSlots: [
+      {
+        id: 'road1',
+        pos: { x: 420, y: 100 }
+      },
+      {
+        id: 'road2',
+        pos: { x: 800, y: 250 }
+      },
+      {
+        id: 'road3',
+        pos: { x: 520, y: 400 }
+      }
+    ],
     waves: [
       {
         id: 'wave1',
         spawns: [
           { type: ENEMY_TYPES.BASIC, delayMs: 0 },
-          { type: ENEMY_TYPES.BASIC, delayMs: 700 },
+          { type: ENEMY_TYPES.RANGED_1, delayMs: 700 },
           { type: ENEMY_TYPES.SWARM, delayMs: 1300 },
-          { type: ENEMY_TYPES.SWARM, delayMs: 1700 },
-          { type: ENEMY_TYPES.BASIC, delayMs: 2400 }
+          { type: ENEMY_TYPES.BASIC, delayMs: 2200 },
+          { type: ENEMY_TYPES.RANGED_1, delayMs: 3000 }
         ]
       },
       {
         id: 'wave2',
         spawns: [
           { type: ENEMY_TYPES.TANK, delayMs: 0 },
-          { type: ENEMY_TYPES.BASIC, delayMs: 800 },
-          { type: ENEMY_TYPES.BASIC, delayMs: 1500 },
-          { type: ENEMY_TYPES.SWARM, delayMs: 2000 },
-          { type: ENEMY_TYPES.SWARM, delayMs: 2400 },
-          { type: ENEMY_TYPES.TANK, delayMs: 3400 }
+          { type: ENEMY_TYPES.RANGED_1, delayMs: 900 },
+          { type: ENEMY_TYPES.SWARM, delayMs: 1500 },
+          { type: ENEMY_TYPES.SWARM, delayMs: 1900 },
+          { type: ENEMY_TYPES.RANGED_2, delayMs: 2900 },
+          { type: ENEMY_TYPES.TANK, delayMs: 3900 }
         ]
       },
       {
         id: 'wave3',
         spawns: [
-          { type: ENEMY_TYPES.TANK, delayMs: 0 },
-          { type: ENEMY_TYPES.TANK, delayMs: 1100 },
-          { type: ENEMY_TYPES.BASIC, delayMs: 1800 },
-          { type: ENEMY_TYPES.SWARM, delayMs: 2200 },
-          { type: ENEMY_TYPES.SWARM, delayMs: 2500 },
-          { type: ENEMY_TYPES.BASIC, delayMs: 3100 },
+          { type: ENEMY_TYPES.RANGED_2, delayMs: 0 },
+          { type: ENEMY_TYPES.TANK, delayMs: 800 },
+          { type: ENEMY_TYPES.BASIC, delayMs: 1500 },
+          { type: ENEMY_TYPES.RANGED_2, delayMs: 2200 },
+          { type: ENEMY_TYPES.SWARM, delayMs: 2600 },
+          { type: ENEMY_TYPES.SWARM, delayMs: 3000 },
           { type: ENEMY_TYPES.TANK, delayMs: 4200 }
         ]
       }
